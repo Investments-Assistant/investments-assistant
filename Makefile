@@ -12,24 +12,24 @@ help:
 	@echo "make clean        - Clean up temporary files and caches"
 
 install:
-	pip install -r requirements.txt
+	poetry install
 
 install-dev:
-	pip install -r requirements-dev.txt
+	poetry install --with dev
 
 run:
-	streamlit run app.py
+	poetry run streamlit run app.py
 
 test:
-	pytest -v --cov=src tests/
+	poetry run pytest -v --cov=src tests/
 
 lint:
-	flake8 src/ app.py
-	mypy src/ app.py
+	poetry run flake8 src/ app.py
+	poetry run mypy src/ app.py
 
 format:
-	black src/ app.py
-	isort src/ app.py
+	poetry run black src/ app.py
+	poetry run isort src/ app.py
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +

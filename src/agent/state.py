@@ -1,15 +1,11 @@
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+"""Simple Agent state representation used by the investment agent."""
+
+from dataclasses import dataclass, field
+from typing import List, Dict, Any
 
 
-class AgentState(BaseModel):
-    """State for the investment analysis agent."""
-    
-    messages: List[Dict[str, str]] = Field(default_factory=list, description="Conversation history")
-    user_input: str = Field(description="Current user input")
-    intermediate_steps: List[tuple] = Field(default_factory=list, description="Agent reasoning steps")
-    output: Optional[str] = Field(default=None, description="Final agent output")
-    analysis_data: Optional[Dict[str, Any]] = Field(default=None, description="Structured analysis data")
-    
-    class Config:
-        arbitrary_types_allowed = True
+@dataclass
+class AgentState:
+    messages: List[Dict[str, Any]] = field(default_factory=list)
+    user_input: str = ""
+    intermediate_steps: List[Dict[str, Any]] = field(default_factory=list)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quick start script for Investment Assistant
+# Quick start script for Investment Assistant with Poetry
 
 set -e
 
@@ -11,28 +11,26 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}📈 Investment Assistant - Setup${NC}"
 echo "=================================="
 
-# Check Python version
-echo "Checking Python version..."
-python_version=$(python3 --version 2>&1 | awk '{print $2}')
-echo "Python $python_version found"
-
-# Create virtual environment
-echo -e "\n${BLUE}Creating virtual environment...${NC}"
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
-    echo -e "${GREEN}✓ Virtual environment created${NC}"
+# Check for Poetry
+echo "Checking for Poetry..."
+if ! command -v poetry &> /dev/null; then
+    echo -e "${BLUE}Poetry not found. Installing Poetry...${NC}"
+    curl -sSL https://install.python-poetry.org | python3 -
+    export PATH="$HOME/.local/bin:$PATH"
+    echo -e "${GREEN}✓ Poetry installed${NC}"
 else
-    echo -e "${GREEN}✓ Virtual environment already exists${NC}"
+    poetry_version=$(poetry --version)
+    echo -e "${GREEN}✓ $poetry_version found${NC}"
 fi
 
-# Activate virtual environment
-echo -e "\n${BLUE}Activating virtual environment...${NC}"
-source venv/bin/activate
-echo -e "${GREEN}✓ Virtual environment activated${NC}"
+# Configure Poetry to use in-project virtualenvs
+echo -e "\n${BLUE}Configuring Poetry...${NC}"
+poetry config virtualenvs.in-project true
+echo -e "${GREEN}✓ Virtualenvs configured to be created in-project${NC}"
 
 # Install dependencies
 echo -e "\n${BLUE}Installing dependencies...${NC}"
-pip install -q -r requirements.txt
+poetry install
 echo -e "${GREEN}✓ Dependencies installed${NC}"
 
 # Setup environment file
@@ -51,7 +49,6 @@ echo -e "==================================${NC}"
 
 echo -e "\n${BLUE}Next steps:${NC}"
 echo "1. Edit .env with your OpenAI API key"
-echo "2. Run: source venv/bin/activate"
-echo "3. Run: streamlit run app.py"
+echo "2. Run: poetry run streamlit run app.py"
 echo ""
 echo "The app will open at http://localhost:8501"

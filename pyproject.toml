@@ -1,50 +1,41 @@
-[build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "investment-assistant"
 version = "0.1.0"
 description = "AI-powered investment analysis assistant with Streamlit, LangChain, and LangGraph"
+authors = ["Luís Pires <27.investments.assistant@gmail.com>"]
+license = "MIT"
 readme = "README.md"
-requires-python = ">=3.9"
-license = {text = "MIT"}
-authors = [
-    {name = "Your Name", email = "your.email@example.com"}
-]
+repository = "https://github.com/yourusername/investments-assistant"
 keywords = ["ai", "investment", "langchain", "langgraph", "streamlit"]
 
-dependencies = [
-    "streamlit>=1.28.0",
-    "langchain>=0.1.0",
-    "langchain-community>=0.0.8",
-    "langgraph>=0.0.1",
-    "python-dotenv>=1.0.0",
-    "requests>=2.31.0",
-    "pydantic>=2.5.0",
-    "openai>=1.3.5",
-]
+[tool.poetry.dependencies]
+python = "^3.9"
+streamlit = "^1.28.1"
+langchain = "^0.1.0"
+langchain-community = "^0.0.8"
+langgraph = "^0.0.1"
+python-dotenv = "^1.0.0"
+requests = "^2.31.0"
+pydantic = "^2.5.0"
+openai = "^1.3.5"
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-cov>=4.1.0",
-    "pytest-asyncio>=0.21.0",
-    "black>=23.12.0",
-    "flake8>=6.1.0",
-    "isort>=5.13.0",
-    "mypy>=1.7.0",
-    "sphinx>=7.2.0",
-]
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+pytest-asyncio = "^0.21.1"
+black = "^23.12.0"
+flake8 = "^6.1.0"
+isort = "^5.13.2"
+mypy = "^1.7.1"
+sphinx = "^7.2.6"
+sphinx-rtd-theme = "^2.0.0"
 
-[project.urls]
-Homepage = "https://github.com/yourusername/investments-assistant"
-Documentation = "https://github.com/yourusername/investments-assistant#readme"
-Repository = "https://github.com/yourusername/investments-assistant.git"
-Issues = "https://github.com/yourusername/investments-assistant/issues"
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
-[tool.setuptools]
-packages = ["src"]
+[tool.poetry.virtualenvs]
+in-project = true
 
 [tool.black]
 line-length = 100

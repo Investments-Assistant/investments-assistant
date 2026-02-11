@@ -4,16 +4,15 @@
 
 ### First Time Setup (Recommended)
 ```bash
-cd ai-agent
+cd investments-assistant
 bash setup.sh
 ```
 
 ### Manual Setup
 ```bash
-cd ai-agent
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+cd investments-assistant
+poetry config virtualenvs.in-project true
+poetry install
 cp .env.example .env
 # Edit .env with your OpenAI API key
 ```
@@ -21,7 +20,7 @@ cp .env.example .env
 ## Running the Application
 
 ```bash
-streamlit run app.py
+poetry run streamlit run app.py
 ```
 
 The app will be available at `http://localhost:8501`
@@ -43,6 +42,15 @@ make format
 
 # Clean up
 make clean
+```
+
+Or use Poetry directly:
+```bash
+poetry install --with dev
+poetry run pytest -v --cov=src tests/
+poetry run flake8 src/ app.py
+poetry run black src/ app.py
+poetry run isort src/ app.py
 ```
 
 ## Project Structure
@@ -150,25 +158,30 @@ headless = true
 
 ## Troubleshooting
 
-### Module not found error
+### Poetry not found
 ```bash
-pip install -r requirements.txt
-# Or with dev tools:
-pip install -r requirements-dev.txt
+curl -sSL https://install.python-poetry.org | python3 -
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### API Key not recognized
-- Check `.env` file exists and has `OPENAI_API_KEY`
-- Verify API key is valid in OpenAI dashboard
-- No leading/trailing spaces in `.env`
-
-### Streamlit not found
+### Module not found error
 ```bash
-# Ensure virtual environment is activated
-source venv/bin/activate
+poetry install
+# Or with dev tools:
+poetry install --with dev
+```
 
-# Reinstall
-pip install streamlit==1.28.1
+### Dependency not found
+```bash
+# Update and reinstall
+poetry update
+poetry install
+```
+
+### Port already in use
+```bash
+# Specify a different port
+poetry run streamlit run app.py --server.port 8502
 ```
 
 ### Slow response times
