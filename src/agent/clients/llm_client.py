@@ -6,7 +6,7 @@ API when an API key is available, otherwise falls back to a safe stub.
 
 from typing import Optional, Any
 
-from src.config import config
+from config import config
 
 
 class LLMClient:
@@ -23,9 +23,8 @@ class LLMClient:
 
         if self.api_key:
             try:
-                import openai  # lazy import to avoid hard dependency at module import time
+                import openai  # type: ignore # lazy import to avoid hard dependency at module import time
 
-                openai.api_key = self.api_key
                 self._client = openai
             except Exception:
                 self._client = None

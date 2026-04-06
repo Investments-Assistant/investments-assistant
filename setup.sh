@@ -49,6 +49,6 @@ echo -e "==================================${NC}"
 
 echo -e "\n${BLUE}Next steps:${NC}"
 echo "1. Edit .env with your OpenAI API key"
-echo "2. Run: poetry run streamlit run app.py"
+echo "2. Run: poetry run streamlit run src/app.py"
 echo ""
 echo "The app will open at http://localhost:8501"

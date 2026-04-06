@@ -71,6 +71,16 @@ poetry run streamlit run app.py
 
 The application will be available at `http://localhost:8501`
 
+### Run Frontend Helper
+
+You can also use the included helper script to launch the Streamlit frontend:
+
+```bash
+./scripts/run_streamlit.sh
+```
+
+If you're using Poetry, the script will run Streamlit inside the project's virtualenv.
+
 ## Usage
 
 1. **Enter API Key**: Paste your OpenAI API key in the sidebar (or configure it in `.env`)

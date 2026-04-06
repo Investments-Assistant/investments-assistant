@@ -7,8 +7,8 @@ returns a dict containing an `output` key with the assistant response.
 
 from typing import Optional, Dict, Any
 
-from src.agent.clients.llm_client import LLMClient
-from src.config import config
+from agent.clients.llm_client import LLMClient
+from config import config
 from .state import AgentState
 
 
