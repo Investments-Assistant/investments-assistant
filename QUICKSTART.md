@@ -20,7 +20,7 @@ cp .env.example .env
 ## Running the Application
 
 ```bash
-poetry run streamlit run app.py
+make run
 ```
 
 The app will be available at `http://localhost:8501`
@@ -88,8 +88,6 @@ ai-agent/
 ### Environment Variables (.env)
 
 ```env
-OPENAI_API_KEY=your_key_here
-OPENAI_MODEL=gpt-4
 AGENT_TEMPERATURE=0.7
 AGENT_MAX_TOKENS=2048
 STREAMLIT_SERVER_PORT=8501
@@ -211,7 +209,6 @@ poetry run streamlit run app.py --server.port 8502
 - [Streamlit Documentation](https://docs.streamlit.io)
 - [LangChain Documentation](https://python.langchain.com)
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph)
-- [OpenAI API Documentation](https://platform.openai.com/docs)
 
 ## Support
 

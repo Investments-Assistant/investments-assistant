@@ -13,30 +13,31 @@ help:
 	@echo "make clean       - Clean up temporary files and caches"
 
 install:
-	poetry install
+	@poetry install
 
 install-dev:
-	poetry install --with dev
+	@poetry install --with dev
 
 run:
-	poetry run streamlit run src/app.py
+	@hf auth login --token $$HUGGINGFACE_TOKEN
+	@poetry run streamlit run src/app.py
 
 test:
-	poetry run pytest -v --cov=src tests/
+	@poetry run pytest -v --cov=src tests/
 
 lint:
-	poetry run ruff check --fix src/
-	poetry run mypy src/
+	@poetry run ruff check --fix src/
+	@poetry run mypy src/
 
 format:
-	poetry run ruff format src/
+	@poetry run ruff format src/
 
 clean:
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
-	find . -type f -name "*.egg-info" -delete
-	rm -rf build/ dist/ .pytest_cache/ .coverage htmlcov/
-	rm -rf .mypy_cache/
+	@find . -type d -name __pycache__ -exec rm -rf {} +
+	@find . -type f -name "*.pyc" -delete
+	@find . -type f -name "*.pyo" -delete
+	@find . -type f -name "*.egg-info" -delete
+	@rm -rf build/ dist/ .pytest_cache/ .coverage htmlcov/
+	@rm -rf .mypy_cache/
 
 .DEFAULT_GOAL := help

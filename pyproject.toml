@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "AI-powered investment analysis assistant with Streamlit, LangChain, and LangGraph"
 license = "MIT"
 readme = "README.md"
-requires-python = ">=3.12,<4.0.0"
+requires-python = ">=3.12,<3.15,!=3.14.1"
 authors = [{"name" = "Luís Pires", "email" = "27.investments.assistant@gmail.com"}]
 maintainers = [{"name" = "Luís Pires", "email" = "27.investments.assistant@gmail.com"}]
 keywords = ["ai", "investment", "langchain", "langgraph", "streamlit"]
@@ -15,19 +15,20 @@ repository = "https://github.com/Investments-Assistant/"
 
 
 [tool.poetry.dependencies]
-streamlit = "*"
-langchain = "*"
-langchain-community = "*"
-langgraph = "*"
-python-dotenv = "*"
-requests = "*"
-pydantic = "*"
-openai = "*"
+streamlit = "1.56.0"
+# langchain = "1.2.15"
+# langchain-community = "0.4.1"
+langgraph = "1.1.6"
+python-dotenv = "1.2.2"
+# requests = "*"
+# pydantic = "*"
+torch = "2.11.0"
+transformers = "5.5.3"
+torchvision = "0.26.0"
 
 [tool.poetry.group.dev.dependencies]
-ipykernel = "*"
-ruff = "*"
-mypy = "*"
+ipykernel = "7.2.0"
+ruff = "0.15.10"
 
 [build-system]
 requires = ["poetry-core"]
@@ -37,3 +38,21 @@ build-backend = "poetry.core.masonry.api"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --cov=src --cov-report=term-missing"
+
+[tool.ruff]
+fix = true
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle (PEP8 formatting)
+    "F",  # pyflakes
+    "I",  # import sorting
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true

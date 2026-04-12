@@ -4,7 +4,7 @@ A Streamlit-based investment analysis assistant powered by LangChain, LangGraph,
 
 ## Features
 
-- 🤖 **AI-Powered Analysis**: Uses LLM models (GPT-4 or GPT-3.5-turbo) for investment insights
+- 🤖 **AI-Powered Analysis**: Uses LLM models (Llama-3.1-8B-Instruct and others) for investment insights
 - 📊 **Portfolio Analysis**: Calculate metrics, risk profiles, and diversification scores
 - 💬 **Conversational Interface**: Natural language interaction through Streamlit
 - 🔗 **LangGraph Integration**: Structured agent workflow with defined states
@@ -83,10 +83,9 @@ If you're using Poetry, the script will run Streamlit inside the project's virtu
 
 ## Usage
 
-1. **Enter API Key**: Paste your OpenAI API key in the sidebar (or configure it in `.env`)
-2. **Select Model**: Choose between GPT-4 or GPT-3.5-turbo
-3. **Adjust Temperature**: Fine-tune the model's creativity (0.0 = deterministic, 1.0 = creative)
-4. **Ask Questions**: Ask the agent about:
+1. **Select Model**: Choose between Llama-3.1-8B-Instruct and other LLMs
+2. **Adjust Temperature**: Fine-tune the model's creativity (0.0 = deterministic, 1.0 = creative)
+3. **Ask Questions**: Ask the agent about:
    - Portfolio analysis
    - Risk assessment
    - Diversification strategies
@@ -119,8 +118,6 @@ User Input → Process Node → Format Output → Response
 ## Configuration
 
 ### Environment Variables
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
-- `OPENAI_MODEL`: Model name (default: gpt-4)
 - `AGENT_TEMPERATURE`: Model temperature 0-1 (default: 0.7)
 - `AGENT_MAX_TOKENS`: Maximum response tokens (default: 2048)
 
@@ -128,7 +125,7 @@ User Input → Process Node → Format Output → Response
 
 ### Install Dev Dependencies
 ```bash
-poetry install --with dev
+make install-dev
 ```
 
 ### Run Tests

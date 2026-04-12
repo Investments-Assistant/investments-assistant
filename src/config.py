@@ -1,6 +1,7 @@
 """Configuration for the investment agent."""
 
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,10 +9,6 @@ load_dotenv()
 
 class Config:
     """Base configuration."""
-
-    # OpenAI Configuration
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4")
 
     # Agent Configuration
     AGENT_TEMPERATURE = float(os.getenv("AGENT_TEMPERATURE", 0.7))

@@ -35,7 +35,7 @@ echo -e "${GREEN}✓ Dependencies installed${NC}"
 
 # Setup environment file
 echo -e "\n${BLUE}Setting up environment...${NC}"
-if [ ! -f ".env" ]; then
+if [[ ! -f ".env" ]]; then
     cp .env.example .env
     echo -e "${GREEN}✓ .env file created from template${NC}"
     echo -e "\n${BLUE}⚠️  Please edit .env and add your OpenAI API key${NC}"

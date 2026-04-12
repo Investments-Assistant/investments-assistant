@@ -5,10 +5,11 @@ app. The agent exposes an `invoke(state: AgentState) -> dict` method that
 returns a dict containing an `output` key with the assistant response.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from agent.clients.llm_client import LLMClient
 from config import config
+
 from .state import AgentState
 
 
@@ -39,9 +40,8 @@ class InvestmentAgent:
 
 
 def create_investment_agent(
-    api_key: Optional[str] = None,
     model: Optional[str] = None,
     temperature: Optional[float] = None,
 ) -> InvestmentAgent:
-    llm = LLMClient(api_key=api_key, model=model)
+    llm = LLMClient(model=model)
     return InvestmentAgent(llm_client=llm, temperature=temperature)

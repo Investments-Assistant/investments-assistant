@@ -1,6 +1,7 @@
-import os
 from dotenv import load_dotenv
 import streamlit as st
+
+from agent.graph import graph
 from agent.investment_agent import create_investment_agent
 from agent.state import AgentState
 
@@ -20,22 +21,16 @@ st.markdown("AI-powered investment analysis and recommendations")
 # Sidebar configuration
 with st.sidebar:
     st.header("Configuration")
-    api_key = st.text_input(
-        "OpenAI API Key:", type="password", value=os.getenv("OPENAI_API_KEY", "")
-    )
-    model = st.selectbox("Model:", ["gpt-4", "gpt-3.5-turbo"])
-    temperature = st.slider("Temperature:", 0.0, 1.0, 0.7)
+    model = st.selectbox("Model:", ["meta-llama/Llama-3.1-8B-Instruct"])
+    temperature = st.slider("Temperature:", 0.0, 2.0, 0.1)
 
 # Initialize session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "agent" not in st.session_state:
-    if not api_key:
-        st.warning("Please enter your OpenAI API Key in the sidebar")
-        st.stop()
     st.session_state.agent = create_investment_agent(
-        api_key=api_key, model=model, temperature=temperature
+        model=model, temperature=temperature
     )
 
 # Display chat history
@@ -64,8 +59,9 @@ if prompt := st.chat_input(
                     intermediate_steps=[],
                 )
 
-                # Run agent
-                result = st.session_state.agent.invoke(initial_state)
+                # Invoke the graph with the initial state
+                result = graph.invoke({"user_input": prompt, "response": ""})
+                answer = result["response"]
 
                 # Extract final response
                 final_response = result.get(
@@ -87,5 +83,6 @@ if prompt := st.chat_input(
 # Footer
 st.markdown("---")
 st.markdown(
-    "*Disclaimer: This AI assistant provides general information only and is not financial advice. Always consult with a qualified financial advisor.*"
+    "*Disclaimer: This AI assistant provides general information only and is not\
+    financial advice. Always consult with a qualified financial advisor.*"
 )
