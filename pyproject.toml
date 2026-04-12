@@ -13,18 +13,14 @@ keywords = ["ai", "investment", "langchain", "langgraph", "streamlit"]
 package-mode = false
 repository = "https://github.com/Investments-Assistant/"
 
-
 [tool.poetry.dependencies]
 streamlit = "1.56.0"
-# langchain = "1.2.15"
-# langchain-community = "0.4.1"
 langgraph = "1.1.6"
 python-dotenv = "1.2.2"
-# requests = "*"
-# pydantic = "*"
 torch = "2.11.0"
 transformers = "5.5.3"
 torchvision = "0.26.0"
+accelerate = "1.13.0"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "7.2.0"
