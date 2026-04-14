@@ -1,30 +1,88 @@
 [project]
 name = "investment-assistant"
-version = "0.0.1"
-description = "AI-powered investment analysis assistant with Streamlit, LangChain, and LangGraph"
+version = "1.0.0"
+description = "AI-powered investment assistant with real-time market data, brokerage integrations, and autonomous trading — runs fully local with Ollama or any OpenAI-compatible LLM server"
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.12,<3.15,!=3.14.1"
 authors = [{"name" = "Luís Pires", "email" = "27.investments.assistant@gmail.com"}]
 maintainers = [{"name" = "Luís Pires", "email" = "27.investments.assistant@gmail.com"}]
-keywords = ["ai", "investment", "langchain", "langgraph", "streamlit"]
+keywords = ["ai", "investment", "ollama", "local-llm", "fastapi", "trading", "crypto", "stocks"]
 
 [tool.poetry]
 package-mode = false
 repository = "https://github.com/Investments-Assistant/"
 
 [tool.poetry.dependencies]
-streamlit = "1.56.0"
-langgraph = "1.1.6"
-python-dotenv = "1.2.2"
-torch = "2.11.0"
-transformers = "5.5.3"
-torchvision = "0.26.0"
-accelerate = "1.13.0"
+# ── Core ──────────────────────────────────────────────────────────────────────
+python-dotenv = ">=1.0.0"
+pydantic = ">=2.0.0"
+pydantic-settings = ">=2.0.0"
+
+# ── LLM backends (local, in-process — install the one you need) ───────────────
+# Backend A: llama_cpp — GGUF models, CPU-optimised, recommended for Pi 5
+#   pip install llama-cpp-python
+#   ARM64/Pi 5: pip install llama-cpp-python \
+#     --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+llama-cpp-python = {version = ">=0.3.0", optional = true}
+
+# Backend B: transformers — HuggingFace safetensors models
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install transformers accelerate
+torch = {version = ">=2.3.0", optional = true}
+transformers = {version = ">=4.44.0", optional = true}
+accelerate = {version = ">=0.34.0", optional = true}
+
+# ── Web framework ─────────────────────────────────────────────────────────────
+fastapi = ">=0.115.0"
+uvicorn = {version = ">=0.32.0", extras = ["standard"]}
+websockets = ">=14.0"
+python-multipart = ">=0.0.12"
+jinja2 = ">=3.1.0"
+httpx = ">=0.28.0"
+aiofiles = ">=24.1.0"
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy = {version = ">=2.0.0", extras = ["asyncio"]}
+asyncpg = ">=0.30.0"
+alembic = ">=1.14.0"
+
+# ── Cache / Queue ─────────────────────────────────────────────────────────────
+redis = {version = ">=5.0.0", extras = ["hiredis"]}
+
+# ── Scheduling ────────────────────────────────────────────────────────────────
+apscheduler = ">=3.10.0"
+
+# ── Market Data ───────────────────────────────────────────────────────────────
+yfinance = ">=0.2.50"
+pandas = ">=2.2.0"
+numpy = ">=1.26.0"
+ta = ">=0.11.0"
+feedparser = ">=6.0.11"
+newsapi-python = ">=0.2.7"
+
+# ── Brokerages ────────────────────────────────────────────────────────────────
+alpaca-py = ">=0.35.0"
+ib_insync = ">=0.9.86"
+coinbase-advanced-py = ">=1.7.0"
+python-binance = ">=1.0.19"
+
+# ── Report generation ─────────────────────────────────────────────────────────
+weasyprint = ">=65.0"
+
+[tool.poetry.extras]
+llama_cpp        = ["llama-cpp-python"]
+hf_transformers  = ["torch", "transformers", "accelerate"]
+all_backends     = ["llama-cpp-python", "torch", "transformers", "accelerate"]
 
 [tool.poetry.group.dev.dependencies]
-ipykernel = "7.2.0"
-ruff = "0.15.10"
+pytest = ">=8.0.0"
+pytest-asyncio = ">=0.24.0"
+pytest-cov = ">=6.0.0"
+ipykernel = ">=6.0.0"
+ruff = ">=0.8.0"
+mypy = ">=1.13.0"
+types-redis = ">=4.0.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -33,22 +91,25 @@ build-backend = "poetry.core.masonry.api"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=src --cov-report=term-missing"
+addopts = "-v"
+pythonpath = ["src"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 fix = true
+line-length = 100
 
 [tool.ruff.format]
-# Enable reformatting of code snippets in docstrings.
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = [
-    "E",  # pycodestyle (PEP8 formatting)
-    "F",  # pyflakes
-    "I",  # import sorting
-]
+select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-sort-within-sections = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true

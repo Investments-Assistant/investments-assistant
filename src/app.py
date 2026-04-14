@@ -1,67 +1,64 @@
-from dotenv import load_dotenv
-import streamlit as st
+"""FastAPI application entry point."""
 
-from agent.graph.graph import graph
-from agent.investment_agent import create_investment_agent
+from __future__ import annotations
 
-load_dotenv()
+from contextlib import asynccontextmanager
 
-st.set_page_config(
-    page_title="Investment Assistant",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
-st.title("📈 Investment Assistant")
-st.markdown("AI-powered investment analysis and recommendations")
+from src.agent.utils.logger import get_logger, setup_logging
+from src.config import settings
+from src.db.database import create_all_tables
+from src.scheduler.jobs import setup_scheduler, shutdown_scheduler
+from src.web.routes import STATIC_DIR, router
 
-with st.sidebar:
-    st.header("Configuration")
-    model = st.selectbox("Model:", ["meta-llama/Llama-3.1-8B-Instruct"])
-    temperature = st.slider("Temperature:", 0.0, 2.0, 0.1)
+setup_logging()
+logger = get_logger(__name__)
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
-if "agent" not in st.session_state:
-    st.session_state.agent = create_investment_agent(
-        model=model, temperature=temperature
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ── Startup ────────────────────────────────────────────────────────────────
+    logger.info(
+        "Starting Investment Assistant (mode=%s, model=%s)",
+        settings.trading_mode,
+        settings.claude_model,
     )
+    await create_all_tables()
+    setup_scheduler()
+    yield
+    # ── Shutdown ───────────────────────────────────────────────────────────────
+    shutdown_scheduler()
+    logger.info("Investment Assistant shut down")
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
-if prompt := st.chat_input(
-    "Ask me about investments, stocks, or portfolio analysis..."
-):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    with st.chat_message("assistant"):
-        with st.spinner("Analyzing..."):
-            try:
-                result = graph.invoke({"user_input": prompt, "response": ""})
-                final_response = result["response"]
-
-                st.markdown(final_response)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": final_response}
-                )
-
-            except Exception as e:
-                error_msg = f"Error: {str(e)}"
-                st.error(error_msg)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": error_msg}
-                )
-
-# Footer
-st.markdown("---")
-st.markdown(
-    "*Disclaimer: This AI assistant provides general information only and is not\
-    financial advice. Always consult with a qualified financial advisor.*"
+app = FastAPI(
+    title="Investment Assistant",
+    description="AI-powered investment agent with real-time market data and brokerage integrations",
+    version="1.0.0",
+    lifespan=lifespan,
+    # Disable docs in production to reduce attack surface
+    docs_url="/docs" if settings.is_development else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if settings.is_development else None,
 )
+
+# Serve static files (CSS, JS)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# Include all routes
+app.include_router(router)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "src.app:app",
+        host=settings.app_host,
+        port=settings.app_port,
+        reload=settings.is_development,
+        log_level=settings.log_level.lower(),
+    )

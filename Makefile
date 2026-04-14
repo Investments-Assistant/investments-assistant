@@ -1,43 +1,90 @@
-.PHONY: help install install-dev run test lint format clean
+.PHONY: help install dev-install run dev lint format test clean \
+        docker-build docker-up docker-down docker-logs docker-restart \
+        gen-certs db-migrate
+
+# ── Variables ──────────────────────────────────────────────────────────────────
+DOCKER_COMPOSE = docker compose
+POETRY = poetry run
 
 help:
-	@echo "Investment Assistant - Available Commands"
+	@echo "Investment Assistant — Available Commands"
 	@echo "=========================================="
-	@echo "make help        - Show this help message"
-	@echo "make install     - Install dependencies"
-	@echo "make install-dev - Install dependencies including dev tools"
-	@echo "make run         - Run the Streamlit application"
-	@echo "make test        - Run tests"
-	@echo "make lint        - Run Ruff linting and mypy type checks"
-	@echo "make format      - Format code with Ruff"
-	@echo "make clean       - Clean up temporary files and caches"
+	@echo ""
+	@echo "  Development"
+	@echo "  -----------"
+	@echo "  make install       Install Python dependencies"
+	@echo "  make run           Run locally (requires .env with local DB/Redis)"
+	@echo "  make dev           Run with auto-reload"
+	@echo "  make lint          Ruff lint + mypy"
+	@echo "  make format        Format code with Ruff"
+	@echo "  make test          Run test suite"
+	@echo ""
+	@echo "  Docker (Raspberry Pi 5)"
+	@echo "  ----------------------"
+	@echo "  make docker-build  Build the app image"
+	@echo "  make docker-up     Start all services (detached)"
+	@echo "  make docker-down   Stop all services"
+	@echo "  make docker-logs   Tail all logs"
+	@echo "  make docker-restart  Restart the app container"
+	@echo "  make gen-certs     Generate self-signed TLS cert for Nginx"
+	@echo ""
 
+# ── Python / Dev ───────────────────────────────────────────────────────────────
 install:
-	@poetry install
+	poetry install --only main
 
-install-dev:
-	@poetry install --with dev
+dev-install:
+	poetry install
 
 run:
-	@hf auth login --token $$HUGGINGFACE_TOKEN
-	@poetry run streamlit run src/app.py
+	$(POETRY) uvicorn src.app:app --host 0.0.0.0 --port 8000
 
-test:
-	@poetry run pytest -v --cov=src tests/
+dev:
+	$(POETRY) uvicorn src.app:app --host 0.0.0.0 --port 8000 --reload
 
 lint:
-	@poetry run ruff check --fix src/
-	@poetry run mypy src/
+	$(POETRY) ruff check src/
+	$(POETRY) mypy --follow-imports=skip src/
 
 format:
-	@poetry run ruff format src/
+	$(POETRY) ruff format src/
+
+test:
+	$(POETRY) pytest
 
 clean:
-	@find . -type d -name __pycache__ -exec rm -rf {} +
-	@find . -type f -name "*.pyc" -delete
-	@find . -type f -name "*.pyo" -delete
-	@find . -type f -name "*.egg-info" -delete
-	@rm -rf build/ dist/ .pytest_cache/ .coverage htmlcov/
-	@rm -rf .mypy_cache/
+	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null; true
+	find . -type f -name "*.pyc" -delete
+	rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+docker-build:
+	$(DOCKER_COMPOSE) build --no-cache app
+
+docker-up:
+	$(DOCKER_COMPOSE) up -d
+	@echo "Services started. App available via Nginx at https://$(shell hostname -I | awk '{print $$1}')"
+
+docker-down:
+	$(DOCKER_COMPOSE) down
+
+docker-logs:
+	$(DOCKER_COMPOSE) logs -f
+
+docker-restart:
+	$(DOCKER_COMPOSE) restart app
+
+docker-ps:
+	$(DOCKER_COMPOSE) ps
+
+# ── TLS Certificate (self-signed) ──────────────────────────────────────────────
+gen-certs:
+	@mkdir -p config/nginx/certs
+	openssl req -x509 -nodes -days 3650 -newkey rsa:4096 \
+	  -keyout config/nginx/certs/selfsigned.key \
+	  -out config/nginx/certs/selfsigned.crt \
+	  -subj "/C=PT/ST=Lisbon/L=Lisbon/O=Investment Assistant/CN=investment-assistant"
+	@echo "Certs written to config/nginx/certs/"
+	@echo "Mount them in docker-compose.yml under the nginx service."
 
 .DEFAULT_GOAL := help
