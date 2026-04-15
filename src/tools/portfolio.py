@@ -83,9 +83,9 @@ def get_account_info(broker: str) -> dict:
 def get_trade_history(broker: str, days: int = 30) -> list[dict]:
     dispatch = {
         "alpaca": lambda: alpaca_tool.get_alpaca_orders(days),
-        "ibkr": lambda: ibkr_tool.get_ibkr_orders(days),
-        "coinbase": lambda: coinbase.get_coinbase_orders(days),
-        "binance": lambda: binance_tool.get_binance_orders(days),
+        "ibkr": lambda: ibkr_tool.get_ibkr_orders(),
+        "coinbase": lambda: coinbase.get_coinbase_orders(),
+        "binance": lambda: binance_tool.get_binance_orders(),
     }
     fn = dispatch.get(broker)
     if not fn:

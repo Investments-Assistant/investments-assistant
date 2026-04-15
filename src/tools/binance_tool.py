@@ -53,7 +53,7 @@ def get_binance_positions() -> list[dict]:
     return result.get("balances", [])
 
 
-def get_binance_orders(days: int = 30, symbol: str | None = None) -> list[dict]:
+def get_binance_orders(symbol: str | None = None) -> list[dict]:
     try:
         client = _get_client()
         if symbol:
@@ -91,7 +91,6 @@ def submit_binance_order(
     quantity: float,
     order_type: str = "market",
     limit_price: float | None = None,
-    stop_price: float | None = None,
 ) -> dict:
     """
     symbol: Binance trading pair e.g. 'BTCUSDT'

@@ -148,7 +148,7 @@ function appendErrorMessage(msg) {
 function sendMessage() {
   const input = document.getElementById('user-input');
   const text = input.value.trim();
-  if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+  if (!text || ws?.readyState !== WebSocket.OPEN) return;
 
   input.value = '';
   input.style.height = '';
@@ -184,7 +184,7 @@ async function setMode(mode) {
     ? '⚡ Auto mode — agent will execute trades within safety limits.'
     : '✋ Recommend mode — agent proposes, you confirm.';
 
-  if (ws && ws.readyState === WebSocket.OPEN) {
+  if (ws?.readyState === WebSocket.OPEN) {
     setSendEnabled(false);
     appendUserMessage(`Switch trading mode to ${mode}`);
     startAssistantMessage();
@@ -206,8 +206,11 @@ async function loadSnapshot() {
     for (const [name, info] of Object.entries(markets)) {
       const price = info.price ? info.price.toLocaleString(undefined, { maximumFractionDigits: 2 }) : 'N/A';
       const chg = info.change_pct;
-      const cls = chg > 0 ? 'up' : chg < 0 ? 'down' : '';
-      const chgStr = chg != null ? ` (${chg > 0 ? '+' : ''}${chg}%)` : '';
+      let cls = '';
+      if (chg > 0) cls = 'up';
+      else if (chg < 0) cls = 'down';
+      const sign = chg > 0 ? '+' : '';
+      const chgStr = chg != null ? ` (${sign}${chg}%)` : '';
       html += `<div class="market-row"><span class="name">${name}</span><span class="price ${cls}">${price}${chgStr}</span></div>`;
     }
     el.innerHTML = html || 'No data available';
@@ -260,7 +263,7 @@ function escapeHtml(str) {
 function markdownToHtml(md) {
   let html = escapeHtml(md);
   // Code blocks
-  html = html.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
+  html = html.replace(/```\w*\n?([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
   // Inline code
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   // Bold
@@ -272,7 +275,7 @@ function markdownToHtml(md) {
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
   // Unordered list
-  html = html.replace(/^[\-\*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>)+/s, '<ul>$&</ul>');
   // Ordered list
   html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');

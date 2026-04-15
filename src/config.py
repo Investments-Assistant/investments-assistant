@@ -128,7 +128,7 @@ class Settings(BaseSettings):
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
     market_data_refresh_minutes: int = 5
-    weekly_report_day: int = 6  # 0=Monday, 6=Sunday
+    weekly_report_day: int = 6  # weekday index: Monday is 0, Sunday is 6
     weekly_report_hour: int = 18
     weekly_report_minute: int = 0
 

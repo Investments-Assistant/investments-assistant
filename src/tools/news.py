@@ -85,7 +85,12 @@ def _simple_sentiment(text: str) -> dict:
     if total == 0:
         return {"label": "neutral", "score": 0.0, "positive": 0, "negative": 0}
     score = (pos - neg) / total
-    label = "bullish" if score > 0.15 else "bearish" if score < -0.15 else "neutral"
+    if score > 0.15:
+        label = "bullish"
+    elif score < -0.15:
+        label = "bearish"
+    else:
+        label = "neutral"
     return {"label": label, "score": round(score, 3), "positive": pos, "negative": neg}
 
 

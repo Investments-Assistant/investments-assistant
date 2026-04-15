@@ -87,7 +87,7 @@ def get_ibkr_positions() -> list[dict]:
         return [{"error": str(exc)}]
 
 
-def get_ibkr_orders(days: int = 30) -> list[dict]:
+def get_ibkr_orders() -> list[dict]:
     if not settings.ibkr_enabled:
         return [_disabled()]
     try:

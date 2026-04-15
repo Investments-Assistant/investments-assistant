@@ -48,7 +48,7 @@ def get_coinbase_positions() -> list[dict]:
     return result.get("balances", [])
 
 
-def get_coinbase_orders(days: int = 30) -> list[dict]:
+def get_coinbase_orders() -> list[dict]:
     try:
         client = _get_client()
         resp = client.list_orders(order_status="FILLED")

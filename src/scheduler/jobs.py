@@ -25,7 +25,7 @@ def get_latest_snapshot() -> dict:
     return _latest_snapshot
 
 
-async def _refresh_market_data() -> None:
+def _refresh_market_data() -> None:
     """Pull latest market overview + major news. Runs every N minutes."""
     global _latest_snapshot
     logger.info("Scheduled: refreshing market data")
