@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     app_port: int = 8000
 
     # ── Security ───────────────────────────────────────────────────────────────
-    allowed_ips: str = "10.8.0.0/24"  # comma-separated CIDRs / IPs
+    allowed_ips: str = (
+        "10.8.0.0/24"  # NOSONAR — private WireGuard VPN subnet; override via ALLOWED_IPS env var
+    )
 
     @computed_field  # type: ignore[prop-decorator]
     @property

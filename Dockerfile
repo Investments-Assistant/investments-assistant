@@ -29,7 +29,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir poetry==2.1.1
 
 # Copy dependency files
-COPY pyproject.toml poetry.lock* ./
+COPY pyproject.toml poetry.lock ./
 
 # Install core dependencies (excludes optional LLM backends)
 RUN poetry config virtualenvs.create false \

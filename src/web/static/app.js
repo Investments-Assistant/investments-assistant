@@ -258,34 +258,34 @@ function timeNow() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 function escapeHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 }
 
 /** Very minimal Markdown → HTML for chat messages. */
 function markdownToHtml(md) {
   let html = escapeHtml(md);
   // Code blocks
-  html = html.replace(/```\w*\n?([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
+  html = html.replaceAll(/```\w*\n?((?:[^`]|`(?!``))*)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
   // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replaceAll(/`([^`]+)`/g, '<code>$1</code>');
   // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replaceAll(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   // Italic
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replaceAll(/\*(.+?)\*/g, '<em>$1</em>');
   // Headers
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  html = html.replaceAll(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replaceAll(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replaceAll(/^# (.+)$/gm, '<h1>$1</h1>');
   // Unordered list
-  html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+  html = html.replaceAll(/^[-*] (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>.*<\/li>)+/s, '<ul>$&</ul>');
   // Ordered list
-  html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  html = html.replaceAll(/^\d+\. (.+)$/gm, '<li>$1</li>');
   // Horizontal rule
-  html = html.replace(/^---$/gm, '<hr>');
+  html = html.replaceAll(/^---$/gm, '<hr>');
   // Paragraphs (blank lines)
-  html = html.replace(/\n\n+/g, '</p><p>');
-  html = html.replace(/\n/g, '<br>');
+  html = html.replaceAll(/\n\n+/g, '</p><p>');
+  html = html.replaceAll(/\n/g, '<br>');
   return `<p>${html}</p>`;
 }
 
