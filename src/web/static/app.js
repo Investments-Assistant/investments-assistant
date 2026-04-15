@@ -250,7 +250,9 @@ function setSendEnabled(enabled) {
 function setStatus(state) {
   const el = document.getElementById('connection-status');
   el.className = 'conn-status ' + state;
-  el.textContent = state === 'online' ? 'Connected' : state === 'connecting' ? 'Connecting…' : 'Disconnected';
+  if (state === 'online') el.textContent = 'Connected';
+  else if (state === 'connecting') el.textContent = 'Connecting…';
+  else el.textContent = 'Disconnected';
 }
 function timeNow() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
