@@ -1,219 +1,191 @@
-# Quick Reference Guide
+# Quick Start — Raspberry Pi 5
 
-## Installation & Setup
+End-to-end deployment from a fresh Pi OS image to a running investment assistant.
 
-### First Time Setup (Recommended)
-```bash
-cd investments-assistant
-bash setup.sh
-```
+---
 
-### Manual Setup
-```bash
-cd investments-assistant
-poetry config virtualenvs.in-project true
-poetry install
-cp .env.example .env
-# Edit .env with your OpenAI API key
-```
+## Prerequisites
 
-## Running the Application
+- Raspberry Pi 5 with **8 GB RAM**
+- **Raspberry Pi OS Lite 64-bit** (bookworm) flashed and booted
+- SSH access to the Pi
+- The project files copied to the Pi (see step 1)
+
+---
+
+## Step 1 — Copy the project to the Pi
+
+From your laptop:
 
 ```bash
-make run
+rsync -av --exclude='.venv' --exclude='__pycache__' --exclude='models' \
+  investments-assistant/ pi@raspberrypi.local:~/investments-assistant/
 ```
 
-The app will be available at `http://localhost:8501`
-
-## Development Commands
+SSH in:
 
 ```bash
-# Install dev dependencies
-make install-dev
-
-# Run tests
-make test
-
-# Check code quality
-make lint
-
-# Format code
-make format
-
-# Clean up
-make clean
+ssh pi@raspberrypi.local
+cd ~/investments-assistant
 ```
 
-Or use Poetry directly:
+---
+
+## Step 2 — Run the automated setup
+
 ```bash
-poetry install --with dev
-poetry run pytest -v --cov=src tests/
-poetry run flake8 src/ app.py
-poetry run black src/ app.py
-poetry run isort src/ app.py
+chmod +x scripts/setup.sh
+bash scripts/setup.sh
 ```
 
-## Project Structure
+This installs Docker, WireGuard, `qrencode`, `iptables-persistent`, generates a TLS
+certificate, configures the DOCKER-USER iptables chain, and sets UFW rules.
+Takes ~5 minutes.
 
-```
-ai-agent/
-├── app.py                      # Main Streamlit app
-├── setup.sh                    # Quick setup script
-├── Makefile                    # Common commands
-├── requirements.txt            # Core dependencies
-├── requirements-dev.txt        # Dev dependencies
-├── pyproject.toml             # Project configuration
-├── .env.example               # Environment template
-├── .gitignore                 # Git ignore rules
-├── README.md                  # Full documentation
-│
-├── src/
-│   ├── __init__.py
-│   ├── config.py              # Configuration management
-│   ├── agent/
-│   │   ├── __init__.py
-│   │   ├── state.py           # Pydantic state model
-│   │   └── investment_agent.py # LangGraph agent
-│   └── tools/
-│       ├── __init__.py
-│       └── investment_tools.py # Investment analysis tools
-│
-└── tests/
-    ├── __init__.py
-    └── test_tools.py          # Unit tests for tools
-```
+After it finishes, **log out and back in** so the `docker` group takes effect:
 
-## Configuration
-
-### Environment Variables (.env)
-
-```env
-AGENT_TEMPERATURE=0.7
-AGENT_MAX_TOKENS=2048
-STREAMLIT_SERVER_PORT=8501
-```
-
-### Streamlit Settings
-
-Edit `~/.streamlit/config.toml`:
-
-```toml
-[theme]
-primaryColor = "#0066ff"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-
-[client]
-showErrorDetails = true
-
-[server]
-port = 8501
-headless = true
-```
-
-## Key Files Explained
-
-### app.py
-- Streamlit UI with chat interface
-- Session state management
-- Error handling and user feedback
-- Configuration in sidebar
-
-### src/agent/state.py
-- Pydantic model for agent state
-- Tracks messages, intermediate steps, and analysis data
-
-### src/agent/investment_agent.py
-- Creates LangGraph workflow
-- Defines nodes (process, format, end)
-- Integrates investment tools
-- Returns compiled graph
-
-### src/tools/investment_tools.py
-- Portfolio metrics calculation
-- Risk analysis
-- Diversification scoring
-- Investment recommendations
-
-### src/config.py
-- Centralized configuration management
-- Environment-based config selection (dev/prod)
-- Loads from .env file
-
-## Usage Examples
-
-### Ask for Portfolio Analysis
-> "I have AAPL $10k, MSFT $5k, GOOGL $3k. How diversified is this?"
-
-### Get Risk Assessment
-> "What's my risk profile for a conservative investor?"
-
-### Request Recommendations
-> "Should I add bonds to my portfolio?"
-
-### Educational Questions
-> "Explain dollar-cost averaging"
-
-## Troubleshooting
-
-### Poetry not found
 ```bash
-curl -sSL https://install.python-poetry.org | python3 -
-export PATH="$HOME/.local/bin:$PATH"
+exit
+ssh pi@raspberrypi.local
+cd ~/investments-assistant
 ```
 
-### Module not found error
+---
+
+## Step 3 — Download a model
+
 ```bash
-poetry install
-# Or with dev tools:
-poetry install --with dev
+python scripts/download_model.py --list        # see available models
+python scripts/download_model.py qwen2.5-7b \
+  --output-dir ~/investments-assistant/models
 ```
 
-### Dependency not found
+The download is ~4.7 GB and takes a few minutes. It prints the exact path to put
+in `LLM_MODEL_PATH`.
+
+---
+
+## Step 4 — Configure `.env`
+
 ```bash
-# Update and reinstall
-poetry update
-poetry install
+nano .env
 ```
 
-### Port already in use
+**Required fields:**
+
+| Variable | Example |
+| --- | --- |
+| `POSTGRES_PASSWORD` | `hunter2` (strong password) |
+| `PIHOLE_PASSWORD` | `hunter2` (Pi-hole admin UI) |
+| `LLM_MODEL_PATH` | `/app/models/qwen2.5-7b-instruct-q4_k_m.gguf` |
+| `ALLOWED_IPS` | `10.8.0.0/24,192.168.1.0/24` |
+| `TZ` | `Europe/Lisbon` |
+
+Broker API keys (fill in only the ones you have):
+`ALPACA_API_KEY` / `ALPACA_SECRET_KEY`, `COINBASE_API_KEY` / `COINBASE_API_SECRET`,
+`BINANCE_API_KEY` / `BINANCE_SECRET_KEY`.
+
+---
+
+## Step 5 — Build and start
+
 ```bash
-# Specify a different port
-poetry run streamlit run app.py --server.port 8502
+make docker-build   # first run: compiles llama-cpp-python (~10-15 min on Pi)
+make docker-up      # start all services
+make docker-logs    # watch logs
 ```
 
-### Slow response times
-- Switch to `gpt-3.5-turbo` in sidebar
-- Reduce `AGENT_MAX_TOKENS` in `.env`
-- Check API rate limits
+The app is ready when you see:
 
-## Adding New Features
+```text
+app  | INFO:     Application startup complete.
+```
 
-### Add a New Tool
-1. Create function in `src/tools/investment_tools.py`
-2. Export in `src/tools/__init__.py`
-3. Create Tool wrapper in `src/agent/investment_agent.py`
+The first chat message takes ~60 s — the GGUF model loads into RAM. It stays warm after that.
 
-### Modify Agent Workflow
-1. Edit `src/agent/investment_agent.py`
-2. Add nodes with `workflow.add_node()`
-3. Connect with `workflow.add_edge()`
+---
 
-### Add Tests
-1. Create test in `tests/test_*.py`
-2. Run with `make test`
-3. Check coverage with `pytest --cov`
+## Step 6 — Set up WireGuard VPN
 
-## Resources
+Follow [config/wireguard/setup.md](config/wireguard/setup.md) for the full guide.
 
-- [Streamlit Documentation](https://docs.streamlit.io)
-- [LangChain Documentation](https://python.langchain.com)
-- [LangGraph Documentation](https://langchain-ai.github.io/langgraph)
+Short version:
 
-## Support
+```bash
+# The server keys were generated by setup.sh:
+sudo cat /etc/wireguard/server_public.key    # share with each client
+sudo cat /etc/wireguard/preshared.key        # add as PresharedKey in each peer
 
-For issues or questions:
-1. Check the README.md
-2. Review test examples in `tests/`
-3. Check Streamlit/LangChain documentation
-4. Open an issue on GitHub
+# Fill in /etc/wireguard/wg0.conf from the template
+sudo cp config/wireguard/wg0.conf.template /etc/wireguard/wg0.conf
+sudo chmod 600 /etc/wireguard/wg0.conf
+sudo nano /etc/wireguard/wg0.conf
+
+# Start WireGuard
+sudo systemctl enable --now wg-quick@wg0
+sudo wg show
+```
+
+**On your router:** forward only **UDP 51820** to the Pi's LAN IP.
+Do NOT forward ports 80 or 443.
+
+**Generate a QR code for your phone:**
+
+```bash
+# Create client config from the template, fill it in, then:
+qrencode -t ansiutf8 < phone.conf
+```
+
+---
+
+## Step 7 — Enable Pi-hole (ad blocking)
+
+Follow [config/pihole/setup.md](config/pihole/setup.md).
+
+Short version: log into your router's DHCP settings and set the **primary DNS**
+to the Pi's LAN IP. All devices on your network will use Pi-hole automatically.
+
+---
+
+## Step 8 — Connect and use
+
+1. Enable WireGuard on your phone or laptop
+2. Open `https://10.8.0.1` in your browser
+3. Accept the self-signed certificate warning
+4. Start chatting
+
+---
+
+## Useful commands
+
+```bash
+make docker-up       # start all services
+make docker-down     # stop all services
+make docker-logs     # stream logs
+make docker-ps       # show container status
+make docker-restart  # rebuild + restart app container
+
+# WireGuard
+sudo wg show             # show connected peers
+sudo systemctl restart wg-quick@wg0
+
+# Logs
+docker compose logs app     # app logs
+docker compose logs nginx   # nginx logs
+docker compose logs pihole  # pi-hole logs
+```
+
+---
+
+## RAM at a glance (Pi 5, 8 GB)
+
+| Component | RAM |
+| --- | --- |
+| Qwen 2.5 7B Q4_K_M | ~4.7 GB |
+| FastAPI + Python | ~200 MB |
+| PostgreSQL | ~100 MB |
+| Redis | ~50 MB |
+| Nginx + Pi-hole | ~80 MB |
+| **Total** | **~5.1 GB** |
+
+If you need more headroom, use `qwen2.5-3b` or `llama3.2-3b` (~3.3–3.4 GB).
