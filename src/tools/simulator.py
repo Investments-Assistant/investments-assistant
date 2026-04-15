@@ -77,6 +77,15 @@ def _buy_and_hold(prices: pd.DataFrame, capital: float) -> tuple[pd.Series, list
     return equity, trades
 
 
+def _crossover_signal(sma_fast: pd.Series, sma_slow: pd.Series, i: int) -> str | None:
+    """Return 'buy', 'sell', or None based on fast/slow SMA crossover at index i."""
+    if sma_fast.iloc[i] > sma_slow.iloc[i] and sma_fast.iloc[i - 1] <= sma_slow.iloc[i - 1]:
+        return "buy"
+    if sma_fast.iloc[i] < sma_slow.iloc[i] and sma_fast.iloc[i - 1] >= sma_slow.iloc[i - 1]:
+        return "sell"
+    return None
+
+
 def _sma_crossover(
     prices: pd.DataFrame,
     capital: float,
@@ -96,36 +105,31 @@ def _sma_crossover(
 
         for i in range(1, len(p)):
             date = p.index[i]
-            if sma_fast.iloc[i] > sma_slow.iloc[i] and sma_fast.iloc[i - 1] <= sma_slow.iloc[i - 1]:
-                # Buy signal
-                if sym_cash > 0 and position == 0:
-                    position = sym_cash / p.iloc[i]
-                    sym_cash = 0.0
-                    trades.append(
-                        {
-                            "date": str(date.date()),
-                            "action": "BUY",
-                            "symbol": sym,
-                            "price": round(p.iloc[i], 4),
-                            "shares": round(position, 4),
-                        }
-                    )
-            elif (
-                sma_fast.iloc[i] < sma_slow.iloc[i] and sma_fast.iloc[i - 1] >= sma_slow.iloc[i - 1]
-            ):
-                # Sell signal
-                if position > 0:
-                    sym_cash = position * p.iloc[i]
-                    trades.append(
-                        {
-                            "date": str(date.date()),
-                            "action": "SELL",
-                            "symbol": sym,
-                            "price": round(p.iloc[i], 4),
-                            "proceeds": round(sym_cash, 2),
-                        }
-                    )
-                    position = 0.0
+            signal = _crossover_signal(sma_fast, sma_slow, i)
+            if signal == "buy" and sym_cash > 0 and position == 0:
+                position = sym_cash / p.iloc[i]
+                sym_cash = 0.0
+                trades.append(
+                    {
+                        "date": str(date.date()),
+                        "action": "BUY",
+                        "symbol": sym,
+                        "price": round(p.iloc[i], 4),
+                        "shares": round(position, 4),
+                    }
+                )
+            elif signal == "sell" and position > 0:
+                sym_cash = position * p.iloc[i]
+                trades.append(
+                    {
+                        "date": str(date.date()),
+                        "action": "SELL",
+                        "symbol": sym,
+                        "price": round(p.iloc[i], 4),
+                        "proceeds": round(sym_cash, 2),
+                    }
+                )
+                position = 0.0
             sym_equity.loc[date] = sym_cash + position * p.iloc[i]
         equity += sym_equity
     return equity, trades

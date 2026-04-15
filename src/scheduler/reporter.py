@@ -111,35 +111,47 @@ async def generate_report(
     }
 
 
+_HEADING_PREFIXES = (("### ", 3), ("## ", 2), ("# ", 1))
+
+
+def _match_heading(line: str) -> str | None:
+    for prefix, level in _HEADING_PREFIXES:
+        if line.startswith(prefix):
+            return f"<h{level}>{line[len(prefix) :]}</h{level}>"
+    return None
+
+
+def _process_text_line(line: str, in_ul: bool, html_lines: list[str], re_module) -> bool:
+    """Handle a non-heading, non-list line. Returns the new in_ul state."""
+    if in_ul:
+        html_lines.append("</ul>")
+        in_ul = False
+    if line.strip():
+        line = re_module.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", line)
+        html_lines.append(f"<p>{line}</p>")
+    else:
+        html_lines.append("")
+    return in_ul
+
+
 def _markdown_to_html(text: str) -> str:
     """Very basic markdown → HTML conversion."""
     import re
 
     lines = text.split("\n")
-    html_lines = []
+    html_lines: list[str] = []
     in_ul = False
     for line in lines:
-        if line.startswith("# "):
-            html_lines.append(f"<h1>{line[2:]}</h1>")
-        elif line.startswith("## "):
-            html_lines.append(f"<h2>{line[3:]}</h2>")
-        elif line.startswith("### "):
-            html_lines.append(f"<h3>{line[4:]}</h3>")
+        heading = _match_heading(line)
+        if heading is not None:
+            html_lines.append(heading)
         elif line.startswith("- ") or line.startswith("* "):
             if not in_ul:
                 html_lines.append("<ul>")
                 in_ul = True
             html_lines.append(f"<li>{line[2:]}</li>")
         else:
-            if in_ul:
-                html_lines.append("</ul>")
-                in_ul = False
-            if line.strip():
-                # Bold
-                line = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", line)
-                html_lines.append(f"<p>{line}</p>")
-            else:
-                html_lines.append("")
+            in_ul = _process_text_line(line, in_ul, html_lines, re)
     if in_ul:
         html_lines.append("</ul>")
     return "\n".join(html_lines)

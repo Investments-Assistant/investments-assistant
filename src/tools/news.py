@@ -89,34 +89,45 @@ def _simple_sentiment(text: str) -> dict:
     return {"label": label, "score": round(score, 3), "positive": pos, "negative": neg}
 
 
+def _rss_entries(source: str, url: str):
+    """Yield (source, entry) pairs from a single RSS feed, suppressing fetch errors."""
+    try:
+        feed = feedparser.parse(url)
+        for entry in feed.entries:
+            yield source, entry
+    except Exception as exc:
+        logger.debug("RSS feed %s failed: %s", source, exc)
+
+
+def _entry_to_article(entry, source: str, query_words: set[str]) -> dict | None:
+    """Return an article dict if the entry matches the query, else None."""
+    title = entry.get("title", "")
+    summary = entry.get("summary", "")
+    text = f"{title} {summary}".lower()
+    if query_words and not any(w in text for w in query_words):
+        return None
+    summary_text = summary[:400] if summary else ""
+    return {
+        "title": title,
+        "summary": summary_text,
+        "source": source,
+        "url": entry.get("link", ""),
+        "published_at": entry.get("published", ""),
+        "sentiment": _simple_sentiment(f"{title} {summary}"),
+    }
+
+
 def _fetch_rss(query: str, max_articles: int) -> list[dict]:
     """Fetch articles from RSS feeds matching the query."""
     query_words = set(re.findall(r"\b\w+\b", query.lower()))
     articles = []
     for source, url in RSS_FEEDS.items():
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries:
-                title = entry.get("title", "")
-                summary = entry.get("summary", "")
-                text = f"{title} {summary}".lower()
-                # Simple relevance: at least one query word must appear
-                if not query_words or any(w in text for w in query_words):
-                    published = entry.get("published", "")
-                    articles.append(
-                        {
-                            "title": title,
-                            "summary": summary[:400] if summary else "",
-                            "source": source,
-                            "url": entry.get("link", ""),
-                            "published_at": published,
-                            "sentiment": _simple_sentiment(f"{title} {summary}"),
-                        }
-                    )
-                if len(articles) >= max_articles * 3:
-                    break
-        except Exception as exc:
-            logger.debug("RSS feed %s failed: %s", source, exc)
+        for src, entry in _rss_entries(source, url):
+            article = _entry_to_article(entry, src, query_words)
+            if article:
+                articles.append(article)
+            if len(articles) >= max_articles * 3:
+                break
     return articles[:max_articles]
 
 

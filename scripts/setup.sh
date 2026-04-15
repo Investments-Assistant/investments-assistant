@@ -42,7 +42,7 @@ sudo sysctl -p -q
 
 # ── 4. Configure WireGuard ────────────────────────────────────────────────────
 echo "[4/9] Setting up WireGuard keys…"
-if [ ! -f /etc/wireguard/server_private.key ]; then
+if [[ ! -f /etc/wireguard/server_private.key ]]; then
   sudo mkdir -p /etc/wireguard
   sudo chmod 700 /etc/wireguard
   # Generate server key pair
@@ -70,7 +70,7 @@ fi
 # ── 5. Set up project .env ────────────────────────────────────────────────────
 echo "[5/9] Configuring environment…"
 cd "$PROJECT_DIR"
-if [ ! -f .env ]; then
+if [[ ! -f .env ]]; then
   cp .env.example .env
   echo ""
   echo "┌──────────────────────────────────────────────────────┐"
@@ -89,7 +89,7 @@ echo "[6/9] Generating self-signed TLS certificate…"
 mkdir -p "$PROJECT_DIR/config/nginx/certs"
 CERT="$PROJECT_DIR/config/nginx/certs/selfsigned.crt"
 KEY="$PROJECT_DIR/config/nginx/certs/selfsigned.key"
-if [ ! -f "$CERT" ]; then
+if [[ ! -f "$CERT" ]]; then
   openssl req -x509 -nodes -days 3650 -newkey rsa:4096 \
     -keyout "$KEY" -out "$CERT" \
     -subj "/C=PT/ST=Lisbon/L=Lisbon/O=InvestmentAssistant/CN=investment-assistant" \
@@ -103,7 +103,7 @@ fi
 # ── 7. Download a model ───────────────────────────────────────────────────────
 echo "[7/9] Checking for LLM model…"
 mkdir -p "$PROJECT_DIR/models"
-if [ -z "$(ls -A "$PROJECT_DIR/models" 2>/dev/null)" ]; then
+if [[ -z "$(ls -A "$PROJECT_DIR/models" 2>/dev/null)" ]]; then
   echo ""
   echo "  No model found in $PROJECT_DIR/models/"
   echo "  Download one now with:"

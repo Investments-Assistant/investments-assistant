@@ -24,55 +24,46 @@ def _enrich_position(pos: dict, symbol_key: str = "symbol") -> dict:
     return pos
 
 
+_BROKER_FUNNELS = [
+    ("alpaca", alpaca_tool.get_alpaca_positions, alpaca_tool.get_alpaca_account),
+    ("ibkr", ibkr_tool.get_ibkr_positions, ibkr_tool.get_ibkr_account),
+    ("coinbase", coinbase.get_coinbase_positions, coinbase.get_coinbase_account),
+    ("binance", binance_tool.get_binance_positions, binance_tool.get_binance_account),
+]
+
+
+def _collect_broker(name: str, positions_fn, account_fn, result: dict) -> None:
+    """Fetch positions and account info for one broker, accumulating into result."""
+    try:
+        acc = account_fn()
+        if "error" not in acc:
+            result["accounts"].append(acc)
+        positions = positions_fn()
+        for p in positions:
+            if "error" not in p:
+                p["broker"] = name
+                result["positions"].append(p)
+                result["total_market_value_usd"] += float(p.get("market_value") or 0)
+                result["total_unrealized_pnl_usd"] += float(
+                    p.get("unrealized_pnl") or p.get("unrealized_pl") or 0
+                )
+    except Exception as exc:
+        logger.warning("%s portfolio fetch failed: %s", name, exc)
+
+
 def get_portfolio_summary(broker: str | None = None) -> dict:
     """Aggregate positions across all (or a specific) broker."""
-    result: dict[str, object] = {
+    result: dict = {
         "positions": [],
         "accounts": [],
         "total_market_value_usd": 0.0,
         "total_unrealized_pnl_usd": 0.0,
     }
-
-    def _collect(name: str, positions_fn, account_fn) -> None:
-        try:
-            acc = account_fn()
-            if "error" not in acc:
-                result["accounts"].append(acc)  # type: ignore[attr-defined]
-            positions = positions_fn()
-            for p in positions:
-                if "error" not in p:
-                    p["broker"] = name
-                    result["positions"].append(p)  # type: ignore[attr-defined]
-                    mv = p.get("market_value") or 0
-                    upnl = p.get("unrealized_pnl") or p.get("unrealized_pl") or 0
-                    result["total_market_value_usd"] = (  # type: ignore[operator]
-                        float(result["total_market_value_usd"]) + float(mv)
-                    )
-                    result["total_unrealized_pnl_usd"] = (  # type: ignore[operator]
-                        float(result["total_unrealized_pnl_usd"]) + float(upnl)
-                    )
-        except Exception as exc:
-            logger.warning("%s portfolio fetch failed: %s", name, exc)
-
-    if broker is None or broker == "alpaca":
-        _collect("alpaca", alpaca_tool.get_alpaca_positions, alpaca_tool.get_alpaca_account)
-    if broker is None or broker == "ibkr":
-        _collect("ibkr", ibkr_tool.get_ibkr_positions, ibkr_tool.get_ibkr_account)
-    if broker is None or broker == "coinbase":
-        _collect(
-            "coinbase",
-            coinbase.get_coinbase_positions,
-            coinbase.get_coinbase_account,
-        )
-    if broker is None or broker == "binance":
-        _collect(
-            "binance",
-            binance_tool.get_binance_positions,
-            binance_tool.get_binance_account,
-        )
-
-    result["total_market_value_usd"] = round(float(result["total_market_value_usd"]), 2)  # type: ignore[arg-type]
-    result["total_unrealized_pnl_usd"] = round(float(result["total_unrealized_pnl_usd"]), 2)  # type: ignore[arg-type]
+    for name, pos_fn, acc_fn in _BROKER_FUNNELS:
+        if broker is None or broker == name:
+            _collect_broker(name, pos_fn, acc_fn, result)
+    result["total_market_value_usd"] = round(result["total_market_value_usd"], 2)
+    result["total_unrealized_pnl_usd"] = round(result["total_unrealized_pnl_usd"], 2)
     return result
 
 

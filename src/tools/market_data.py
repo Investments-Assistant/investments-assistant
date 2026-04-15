@@ -114,6 +114,35 @@ def get_market_overview() -> dict:
 # ── Technical Indicators ───────────────────────────────────────────────────────
 
 
+def _build_signals(
+    rsi: float,
+    macd_val: float,
+    macd_signal: float,
+    current_price: float,
+    ema200: float | None,
+    bb_upper: float,
+    bb_lower: float,
+) -> list[str]:
+    signals: list[str] = []
+    if rsi < 30:
+        signals.append("RSI oversold (bullish signal)")
+    elif rsi > 70:
+        signals.append("RSI overbought (bearish signal)")
+    if macd_val > macd_signal:
+        signals.append("MACD bullish crossover")
+    else:
+        signals.append("MACD bearish crossover")
+    if ema200 is not None and current_price > ema200:
+        signals.append("Price above 200 EMA (uptrend)")
+    else:
+        signals.append("Price below 200 EMA (downtrend)")
+    if current_price > bb_upper:
+        signals.append("Price above upper Bollinger Band (overextended)")
+    elif current_price < bb_lower:
+        signals.append("Price below lower Bollinger Band (oversold)")
+    return signals
+
+
 def get_technical_indicators(symbol: str, period: str = "6mo") -> dict:
     """Calculate RSI, MACD, Bollinger Bands, EMA 20/50/200, ATR, OBV."""
     try:
@@ -168,26 +197,11 @@ def get_technical_indicators(symbol: str, period: str = "6mo") -> dict:
         current_price = float(close.iloc[-1])
 
         def _r(v: float | None, digits: int = 4) -> float | None:
-            return round(float(v), digits) if v is not None and not (v != v) else None
+            return round(float(v), digits) if v is not None and v == v else None
 
-        # Simple signal interpretation
-        signals = []
-        if rsi < 30:
-            signals.append("RSI oversold (bullish signal)")
-        elif rsi > 70:
-            signals.append("RSI overbought (bearish signal)")
-        if macd_val > macd_signal:
-            signals.append("MACD bullish crossover")
-        else:
-            signals.append("MACD bearish crossover")
-        if current_price > ema200 if ema200 else False:
-            signals.append("Price above 200 EMA (uptrend)")
-        else:
-            signals.append("Price below 200 EMA (downtrend)")
-        if current_price > bb_upper:
-            signals.append("Price above upper Bollinger Band (overextended)")
-        elif current_price < bb_lower:
-            signals.append("Price below lower Bollinger Band (oversold)")
+        signals = _build_signals(
+            rsi, macd_val, macd_signal, current_price, ema200, bb_upper, bb_lower
+        )
 
         return {
             "symbol": symbol,
@@ -219,6 +233,35 @@ def get_technical_indicators(symbol: str, period: str = "6mo") -> dict:
 
 # ── Options Chain ──────────────────────────────────────────────────────────────
 
+_OPT_COLUMNS = [
+    "strike",
+    "bid",
+    "ask",
+    "lastPrice",
+    "impliedVolatility",
+    "openInterest",
+    "delta",
+    "gamma",
+]
+
+
+def _option_rows(df: pd.DataFrame) -> list[dict]:
+    if df.empty:
+        return []
+    return df[_OPT_COLUMNS].head(20).to_dict("records")
+
+
+def _clean_option_list(lst: list[dict]) -> list[dict]:
+    """Replace NaN values and unwrap numpy scalars in an options row list."""
+    for item in lst:
+        for k, v in item.items():
+            with contextlib.suppress(Exception):
+                if pd.isna(v):
+                    item[k] = None
+                elif hasattr(v, "item"):
+                    item[k] = v.item()
+    return lst
+
 
 def get_options_chain(symbol: str, expiry: str | None = None) -> dict:
     """Fetch options chain for a stock symbol."""
@@ -228,65 +271,17 @@ def get_options_chain(symbol: str, expiry: str | None = None) -> dict:
         if not exps:
             return {"error": f"No options available for {symbol}"}
 
-        if expiry:
-            target_exps = [expiry] if expiry in exps else []
+        if expiry and expiry in exps:
+            target_exps = [expiry]
         else:
             target_exps = list(exps[:3])  # next 3 expiries
 
         result: dict[str, object] = {"symbol": symbol, "expiries": {}}
         for exp in target_exps:
             opt = ticker.option_chain(exp)
-            calls = (
-                opt.calls[
-                    [
-                        "strike",
-                        "bid",
-                        "ask",
-                        "lastPrice",
-                        "impliedVolatility",
-                        "openInterest",
-                        "delta",
-                        "gamma",
-                    ]
-                ]
-                .head(20)
-                .to_dict("records")
-                if not opt.calls.empty
-                else []
-            )
-            puts = (
-                opt.puts[
-                    [
-                        "strike",
-                        "bid",
-                        "ask",
-                        "lastPrice",
-                        "impliedVolatility",
-                        "openInterest",
-                        "delta",
-                        "gamma",
-                    ]
-                ]
-                .head(20)
-                .to_dict("records")
-                if not opt.puts.empty
-                else []
-            )
-
-            # clean NaN
-            def _clean(lst: list[dict]) -> list[dict]:
-                for item in lst:
-                    for k, v in item.items():
-                        with contextlib.suppress(Exception):
-                            if v != v:  # NaN check
-                                item[k] = None
-                            elif hasattr(v, "item"):
-                                item[k] = v.item()
-                return lst
-
             result["expiries"][exp] = {
-                "calls": _clean(calls),
-                "puts": _clean(puts),
+                "calls": _clean_option_list(_option_rows(opt.calls)),
+                "puts": _clean_option_list(_option_rows(opt.puts)),
             }
         return result
     except Exception as exc:

@@ -34,51 +34,35 @@ async def dispatch_tool(tool_name: str, tool_input: dict) -> str:
     return json.dumps(result, default=str, ensure_ascii=False)
 
 
-async def _dispatch(name: str, inp: dict) -> object:  # noqa: PLR0911, PLR0912
-    # ── Market Data ────────────────────────────────────────────────────────────
-    if name == "get_stock_data":
-        return get_stock_data(**inp)
-    if name == "get_crypto_data":
-        return get_crypto_data(**inp)
-    if name == "get_market_overview":
-        return get_market_overview()
-    if name == "get_technical_indicators":
-        return get_technical_indicators(**inp)
-    if name == "get_options_chain":
-        return get_options_chain(**inp)
-    if name == "search_ticker":
-        return search_ticker(**inp)
-    if name == "get_earnings_calendar":
-        return get_earnings_calendar(**inp)
+# Synchronous tools mapped by name to a callable that receives the raw input dict.
+_SYNC_DISPATCH: dict[str, object] = {
+    "get_stock_data": lambda inp: get_stock_data(**inp),
+    "get_crypto_data": lambda inp: get_crypto_data(**inp),
+    "get_market_overview": lambda _: get_market_overview(),
+    "get_technical_indicators": lambda inp: get_technical_indicators(**inp),
+    "get_options_chain": lambda inp: get_options_chain(**inp),
+    "search_ticker": lambda inp: search_ticker(**inp),
+    "get_earnings_calendar": lambda inp: get_earnings_calendar(**inp),
+    "search_market_news": lambda inp: search_market_news(**inp),
+    "get_portfolio_summary": lambda inp: get_portfolio_summary(broker=inp.get("broker")),
+    "get_account_info": lambda inp: get_account_info(broker=inp["broker"]),
+    "get_trade_history": lambda inp: get_trade_history(
+        broker=inp["broker"], days=inp.get("days", 30)
+    ),
+    "run_simulation": lambda inp: run_simulation(**inp),
+    "set_trading_mode": lambda inp: _set_trading_mode(inp["mode"]),
+}
 
-    # ── News ───────────────────────────────────────────────────────────────────
-    if name == "search_market_news":
-        return search_market_news(**inp)
 
-    # ── Portfolio ──────────────────────────────────────────────────────────────
-    if name == "get_portfolio_summary":
-        return get_portfolio_summary(broker=inp.get("broker"))
-    if name == "get_account_info":
-        return get_account_info(broker=inp["broker"])
-    if name == "get_trade_history":
-        return get_trade_history(broker=inp["broker"], days=inp.get("days", 30))
-
-    # ── Trade Execution ────────────────────────────────────────────────────────
+async def _dispatch(name: str, inp: dict) -> object:
+    if name in _SYNC_DISPATCH:
+        return _SYNC_DISPATCH[name](inp)  # type: ignore[operator]
     if name == "execute_trade":
         return await _execute_trade(inp)
     if name == "cancel_order":
         return _cancel_order(inp)
-
-    # ── Simulation ─────────────────────────────────────────────────────────────
-    if name == "run_simulation":
-        return run_simulation(**inp)
-
-    # ── Agent Control ──────────────────────────────────────────────────────────
-    if name == "set_trading_mode":
-        return _set_trading_mode(inp["mode"])
     if name == "generate_report":
         return await _generate_report(inp)
-
     return {"error": f"Unknown tool: {name}"}
 
 

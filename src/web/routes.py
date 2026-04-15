@@ -109,7 +109,11 @@ async def market_snapshot() -> dict:
     return snap
 
 
-@router.get("/api/reports", dependencies=[Depends(require_allowed_ip)])
+@router.get(
+    "/api/reports",
+    dependencies=[Depends(require_allowed_ip)],
+    responses={500: {"description": "Database error"}},
+)
 async def list_reports() -> list[dict]:
     """List all generated reports."""
     try:
@@ -138,7 +142,14 @@ async def list_reports() -> list[dict]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.get("/api/reports/{report_id}/pdf", dependencies=[Depends(require_allowed_ip)])
+@router.get(
+    "/api/reports/{report_id}/pdf",
+    dependencies=[Depends(require_allowed_ip)],
+    responses={
+        404: {"description": "Report not found or PDF not available"},
+        500: {"description": "Database error"},
+    },
+)
 async def download_report_pdf(report_id: str) -> FileResponse:
     """Download a report as PDF."""
     try:
@@ -165,7 +176,11 @@ async def download_report_pdf(report_id: str) -> FileResponse:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.get("/api/trades", dependencies=[Depends(require_allowed_ip)])
+@router.get(
+    "/api/trades",
+    dependencies=[Depends(require_allowed_ip)],
+    responses={500: {"description": "Database error"}},
+)
 async def list_trades(limit: int = 50) -> list[dict]:
     """List recent trades recorded in the database."""
     try:
