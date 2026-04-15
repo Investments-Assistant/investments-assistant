@@ -31,25 +31,21 @@ RUN pip install --no-cache-dir poetry==2.1.1
 # Copy dependency files
 COPY pyproject.toml poetry.lock ./
 
-# Install core dependencies (excludes optional LLM backends)
-RUN poetry config virtualenvs.create false \
-    && poetry install --only main --no-root --no-interaction
-
-# Install llama-cpp-python with OpenBLAS acceleration for ARM64.
-# This compiles from source — takes a few minutes on the Pi.
+# Install core dependencies then llama-cpp-python with OpenBLAS acceleration for ARM64.
+# llama-cpp-python compiles from source — takes a few minutes on the Pi.
 # OpenBLAS gives a meaningful throughput boost on the Cortex-A76 cores.
-RUN CMAKE_ARGS="-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS" \
-    pip install --no-cache-dir llama-cpp-python
+RUN poetry config virtualenvs.create false \
+    && poetry install --only main --no-root --no-interaction \
+    && CMAKE_ARGS="-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS" \
+       pip install --no-cache-dir llama-cpp-python
 
 # Copy source
 COPY src/ ./src/
 COPY .env.example ./.env.example
 
-# Create directories
-RUN mkdir -p /app/reports /app/models
-
-# Non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create directories and set up non-root user for security
+RUN mkdir -p /app/reports /app/models \
+    && useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000

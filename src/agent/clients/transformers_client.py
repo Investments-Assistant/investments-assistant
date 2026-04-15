@@ -51,7 +51,7 @@ _TOOL_CALL_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # (pattern, name_key, input_key)
     # Qwen 2.5, Hermes, many open models
     (
-        re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL),
+        re.compile(r"<tool_call>\s*(\{[^<]*\})\s*</tool_call>"),
         "name",
         "arguments",
     ),

@@ -127,7 +127,7 @@ function appendToolResult(name, resultStr) {
   try {
     const obj = JSON.parse(resultStr);
     preview = JSON.stringify(obj, null, 0).slice(0, 120) + (resultStr.length > 120 ? '…' : '');
-  } catch (_) {}
+  } catch (_) { /* resultStr is not valid JSON — use the raw string as preview */ }
   const el = document.createElement('div');
   el.className = 'tool-call result';
   el.innerHTML = `<span class="tool-icon">✅</span> <strong>${escapeHtml(name)}</strong> → ${escapeHtml(preview)}`;
@@ -210,11 +210,12 @@ async function loadSnapshot() {
       if (chg > 0) cls = 'up';
       else if (chg < 0) cls = 'down';
       const sign = chg > 0 ? '+' : '';
-      const chgStr = chg != null ? ` (${sign}${chg}%)` : '';
+      const chgStr = chg == null ? '' : ` (${sign}${chg}%)`;
       html += `<div class="market-row"><span class="name">${name}</span><span class="price ${cls}">${price}${chgStr}</span></div>`;
     }
     el.innerHTML = html || 'No data available';
   } catch (e) {
+    console.error('Snapshot load failed', e);
     el.textContent = 'Failed to load snapshot.';
   }
 }
@@ -232,6 +233,7 @@ async function loadReports() {
       </div>
     `).join('');
   } catch (e) {
+    console.error('Reports load failed', e);
     el.textContent = 'Could not load reports.';
   }
 }
@@ -310,7 +312,7 @@ function markdownToHtml(md) {
   html = html.replaceAll(/^---$/gm, '<hr>');
   // Paragraphs (blank lines)
   html = html.replaceAll(/\n\n+/g, '</p><p>');
-  html = html.replaceAll(/\n/g, '<br>');
+  html = html.replaceAll('\n', '<br>');
   return `<p>${html}</p>`;
 }
 
@@ -320,7 +322,7 @@ function toggleSidebar() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-window.addEventListener('DOMContentLoaded', () => {
+globalThis.addEventListener('DOMContentLoaded', () => {
   connect();
   loadSnapshot();
   loadReports();
