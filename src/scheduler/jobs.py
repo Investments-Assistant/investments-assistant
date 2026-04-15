@@ -10,6 +10,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from src.agent.utils.logger import get_logger
 from src.config import settings
+from src.news.email_reader import read_and_ingest_newsletters
+from src.news.ingestion import run_ingestion
 from src.tools.market_data import get_market_overview
 from src.tools.news import search_market_news
 
@@ -59,6 +61,20 @@ async def _run_weekly_report() -> None:
         logger.info("Weekly report generated: %s", result.get("report_id"))
     except Exception as exc:
         logger.error("Weekly report generation failed: %s", exc)
+
+
+async def _ingest_news() -> None:
+    """Fetch and persist articles from all configured sources."""
+    logger.info("Scheduled: news ingestion")
+    stats = await run_ingestion(days_back=1)
+    logger.info("News ingestion complete: %s", stats)
+
+
+async def _ingest_newsletter() -> None:
+    """Check inbox for new newsletters and ingest them (runs Saturday mornings)."""
+    logger.info("Scheduled: newsletter email ingestion")
+    stats = await read_and_ingest_newsletters(since_days=8)
+    logger.info("Newsletter ingestion complete: %s", stats)
 
 
 async def _autonomous_scan() -> None:
@@ -117,6 +133,28 @@ def setup_scheduler() -> None:
             timezone="UTC",
         ),
         id="autonomous_scan",
+        replace_existing=True,
+    )
+
+    # News memory ingestion (every 30 minutes, 24/7)
+    scheduler.add_job(
+        _ingest_news,
+        trigger=IntervalTrigger(minutes=30),
+        id="news_ingestion",
+        replace_existing=True,
+        misfire_grace_time=120,
+    )
+
+    # Newsletter email reader (every Saturday at 09:00 UTC = ~10am Lisbon time)
+    scheduler.add_job(
+        _ingest_newsletter,
+        trigger=CronTrigger(
+            day_of_week="sat",
+            hour=9,
+            minute=0,
+            timezone="UTC",
+        ),
+        id="newsletter_ingestion",
         replace_existing=True,
     )
 

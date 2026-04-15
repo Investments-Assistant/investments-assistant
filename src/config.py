@@ -127,6 +127,16 @@ class Settings(BaseSettings):
 
     # ── News ───────────────────────────────────────────────────────────────────
     newsapi_key: str = ""
+    guardian_api_key: str = ""  # free key at https://open-platform.theguardian.com/
+
+    # ── Newsletter email ingestion (IMAP) ──────────────────────────────────────
+    # Works with Gmail (enable IMAP + create an App Password if 2FA is on),
+    # Outlook, and any standard IMAP server.
+    newsletter_imap_server: str = "imap.gmail.com"
+    newsletter_imap_port: int = 993
+    newsletter_email_user: str = ""  # your email address
+    newsletter_email_password: str = ""  # app password, not your main password
+    newsletter_sender_filter: str = ""  # only ingest emails FROM this address
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
     market_data_refresh_minutes: int = 5

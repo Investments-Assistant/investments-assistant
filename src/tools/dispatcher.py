@@ -22,6 +22,7 @@ from src.tools.market_data import (
     search_ticker,
 )
 from src.tools.news import search_market_news
+from src.tools.news_memory import get_latest_news, search_stored_news
 from src.tools.portfolio import get_account_info, get_portfolio_summary, get_trade_history
 from src.tools.simulator import run_simulation
 
@@ -58,10 +59,18 @@ _SYNC_DISPATCH: dict[str, object] = {
     "set_trading_mode": lambda inp: _set_trading_mode(inp["mode"]),
 }
 
+# Async tools that can't live in _SYNC_DISPATCH (they are awaited in _dispatch)
+_ASYNC_DISPATCH: dict[str, object] = {
+    "search_stored_news": lambda inp: search_stored_news(**inp),
+    "get_latest_news": lambda inp: get_latest_news(limit=inp.get("limit", 20)),
+}
+
 
 async def _dispatch(name: str, inp: dict) -> object:
     if name in _SYNC_DISPATCH:
         return _SYNC_DISPATCH[name](inp)  # type: ignore[operator]
+    if name in _ASYNC_DISPATCH:
+        return await _ASYNC_DISPATCH[name](inp)  # type: ignore[operator]
     if name == "execute_trade":
         return await _execute_trade(inp)
     if name == "cancel_order":

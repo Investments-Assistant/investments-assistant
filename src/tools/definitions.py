@@ -386,6 +386,67 @@ TOOL_DEFINITIONS = [
             "required": ["period_start"],
         },
     },
+    # ── News Memory ────────────────────────────────────────────────────────────
+    {
+        "name": "search_stored_news",
+        "description": (
+            "Search the persistent news memory for articles matching a query. "
+            "The memory is continuously updated from Reuters, The Guardian, CNBC, "
+            "Financial Times, The Economist, ECB, Portuguese sources (Jornal de Negócios, "
+            "Dinheiro Vivo, ECO), crypto news, and your email newsletters. "
+            "Use this to recall past events, track a story over time, or find coverage "
+            "of a specific company, macro theme, or geopolitical event."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural-language search, \
+                        e.g. 'ECB rate decision Portugal economy'",
+                },
+                "days_back": {
+                    "type": "integer",
+                    "description": "How many days back to search (0 = all history)",
+                    "default": 30,
+                },
+                "sources": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Restrict to these sources, e.g. ['The Guardian', 'Reuters']",
+                },
+                "sentiment": {
+                    "type": "string",
+                    "enum": ["bullish", "bearish", "neutral"],
+                    "description": "Filter by article sentiment",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max articles to return (1–100)",
+                    "default": 20,
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "get_latest_news",
+        "description": (
+            "Return the most recently ingested news headlines from all sources. "
+            "Use this for a quick 'what happened today' overview before a deeper search."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of headlines to return (1–50)",
+                    "default": 20,
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
