@@ -6,7 +6,12 @@ import json
 
 from src.agent.utils.logger import get_logger
 from src.config import settings
-from src.tools import alpaca as alpaca_tool, binance_tool, coinbase, ibkr as ibkr_tool
+from src.tools.brokers import (
+    alpaca as alpaca_tool,
+    binance as binance_tool,
+    coinbase,
+    ibkr as ibkr_tool,
+)
 from src.tools.market_data import (
     get_crypto_data,
     get_earnings_calendar,
