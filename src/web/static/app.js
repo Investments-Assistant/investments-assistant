@@ -261,11 +261,36 @@ function escapeHtml(str) {
   return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 }
 
+/**
+ * Replace fenced code blocks (``` … ```) using a linear indexOf scan.
+ * Regex-based approaches require backtracking over the block content and are
+ * vulnerable to super-linear runtime when there is no closing fence.
+ */
+function replaceCodeBlocks(html) {
+  const FENCE = '```';
+  let result = '';
+  let pos = 0;
+  while (pos < html.length) {
+    const open = html.indexOf(FENCE, pos);
+    if (open === -1) { result += html.slice(pos); break; }
+    result += html.slice(pos, open);
+    const bodyStart = open + FENCE.length;
+    const close = html.indexOf(FENCE, bodyStart);
+    if (close === -1) { result += html.slice(open); break; } // unclosed fence — leave as-is
+    const body = html.slice(bodyStart, close);
+    const nl = body.indexOf('\n');
+    const code = (nl >= 0 ? body.slice(nl + 1) : body).trim(); // strip optional language hint
+    result += `<pre><code>${code}</code></pre>`;
+    pos = close + FENCE.length;
+  }
+  return result;
+}
+
 /** Very minimal Markdown → HTML for chat messages. */
 function markdownToHtml(md) {
   let html = escapeHtml(md);
-  // Code blocks
-  html = html.replaceAll(/```\w*\n?((?:[^`]|`(?!``))*)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
+  // Code blocks — handled by linear scan above (no regex backtracking)
+  html = replaceCodeBlocks(html);
   // Inline code
   html = html.replaceAll(/`([^`]+)`/g, '<code>$1</code>');
   // Bold
