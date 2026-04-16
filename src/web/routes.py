@@ -96,7 +96,9 @@ async def health() -> dict:
         "status": "ok",
         "timestamp": datetime.now(UTC).isoformat(),
         "trading_mode": settings.trading_mode,
-        "model": settings.claude_model,
+        "model": settings.llm_model_name
+        if settings.llm_backend == "transformers"
+        else settings.llm_model_path,
     }
 
 

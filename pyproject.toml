@@ -94,8 +94,23 @@ build-backend = "poetry.core.masonry.api"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v"
-pythonpath = ["src"]
+pythonpath = ["."]
 asyncio_mode = "auto"
+markers = [
+    "unit: Pure unit tests with no external dependencies",
+    "integration: Integration tests requiring a live PostgreSQL + Redis",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/web/static/*", "tests/*", "*/__pycache__/*"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.ruff]
 fix = true
