@@ -33,6 +33,10 @@ torch = {version = ">=2.3.0", optional = true}
 transformers = {version = ">=4.44.0", optional = true}
 accelerate = {version = ">=0.34.0", optional = true}
 
+# MCP server — expose tools to Claude Desktop / Claude Code
+#   pip install mcp   (on your laptop, not the Pi)
+mcp = {version = ">=1.0.0", optional = true}
+
 # ── Web framework ─────────────────────────────────────────────────────────────
 fastapi = ">=0.115.0"
 uvicorn = {version = ">=0.32.0", extras = ["standard"]}
@@ -76,6 +80,7 @@ weasyprint = ">=65.0"
 llama_cpp        = ["llama-cpp-python"]
 hf_transformers  = ["torch", "transformers", "accelerate"]
 all_backends     = ["llama-cpp-python", "torch", "transformers", "accelerate"]
+mcp              = ["mcp"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.0.0"
@@ -92,10 +97,11 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py"]
+python_files = ["test_*.py", "*_test.py"]
 addopts = "-v"
 pythonpath = ["."]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "unit: Pure unit tests with no external dependencies",
     "integration: Integration tests requiring a live PostgreSQL + Redis",

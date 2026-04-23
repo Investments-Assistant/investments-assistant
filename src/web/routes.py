@@ -216,6 +216,33 @@ async def list_trades(limit: int = 50) -> list[dict]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+# ── MCP tool invocation ───────────────────────────────────────────────────────
+
+
+@router.post(
+    "/api/tools/invoke",
+    dependencies=[Depends(require_allowed_ip)],
+    responses={400: {"description": "Missing tool_name"}, 500: {"description": "Tool error"}},
+)
+async def invoke_tool(request: Request) -> dict:
+    """Invoke any agent tool by name. Used by the MCP server to forward Claude Desktop calls."""
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
+
+    tool_name = body.get("tool_name")
+    if not tool_name:
+        raise HTTPException(status_code=400, detail="Missing 'tool_name'")
+
+    tool_input = body.get("tool_input", {})
+
+    from src.tools.dispatcher import dispatch_tool
+
+    result_json = await dispatch_tool(tool_name, tool_input)
+    return {"result": result_json}
+
+
 # ── Main chat UI ───────────────────────────────────────────────────────────────
 
 

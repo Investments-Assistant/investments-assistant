@@ -20,10 +20,14 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ────────────────────────────────────────────────────────────────
+    model_id = (
+        settings.llm_model_path if settings.llm_backend == "llama_cpp" else settings.llm_model_name
+    )
     logger.info(
-        "Starting Investment Assistant (mode=%s, model=%s)",
+        "Starting Investment Assistant (mode=%s, backend=%s, model=%s)",
         settings.trading_mode,
-        settings.claude_model,
+        settings.llm_backend,
+        model_id,
     )
     await create_all_tables()
     setup_scheduler()

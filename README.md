@@ -31,24 +31,137 @@ LLM inference is **fully local**: models are loaded directly into process memory
 ## Architecture
 
 ```
-Browser / Phone
-     │  (WireGuard VPN — only authenticated devices)
-     ▼
-  Nginx  ──  IP whitelist + rate limiting
-     │
-     ▼
-  FastAPI  ──  WebSocket chat  ──  InvestmentOrchestrator
-                                          │
-                            ┌─────────────┴──────────────┐
-                            ▼                            ▼
-                     LLM Backend                   Tool Dispatcher
-                  (llama_cpp / hf)            (18 tools → brokers,
-                                              market data, news, etc.)
-     ▼              ▼               ▼
-PostgreSQL         Redis        APScheduler
-(chat history,   (cache)      (market refresh,
- trades, reports)              weekly reports,
-                               autonomous scans)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  CLIENT DEVICES  (phone, laptop, tablet)                                    │
+│                                                                             │
+│  ┌──────────────────────┐       ┌──────────────────────────────────────┐   │
+│  │  Browser / Web UI    │       │  Claude Desktop / Claude Code        │   │
+│  │  https://10.8.0.1    │       │  (optional — via MCP server          │   │
+│  └──────────┬───────────┘       │   on your laptop)                    │   │
+│             │                   └──────────────┬───────────────────────┘   │
+└─────────────┼──────────────────────────────────┼───────────────────────────┘
+              │  WireGuard VPN (UDP 51820)        │  WireGuard VPN
+              │  Only authenticated peers         │  POST /api/tools/invoke
+              ▼                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  RASPBERRY PI 5  (8 GB RAM)                                                 │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │  Nginx  (Docker container, port 443)                                │   │
+│  │  • TLS termination (self-signed cert)                               │   │
+│  │  • IP whitelist: 10.8.0.0/24, 192.168.0.0/16                       │   │
+│  │  • Rate limiting: 60 req/min general, 10 WebSocket connections      │   │
+│  └───────────────────────────────┬─────────────────────────────────────┘   │
+│                                  │  proxy_pass → :8000                     │
+│  ┌───────────────────────────────▼─────────────────────────────────────┐   │
+│  │  FastAPI  (Docker container, port 8000)                             │   │
+│  │                                                                     │   │
+│  │  ┌──────────────────┐   ┌───────────────────┐   ┌───────────────┐  │   │
+│  │  │ GET /            │   │ WS /ws/chat/{id}  │   │ REST API      │  │   │
+│  │  │ Chat UI (HTML)   │   │ Streaming chat    │   │ /api/health   │  │   │
+│  │  └──────────────────┘   └────────┬──────────┘   │ /api/reports  │  │   │
+│  │                                  │               │ /api/trades   │  │   │
+│  │                          ┌───────▼──────────┐   │ /api/tools/   │  │   │
+│  │                          │  Orchestrator    │   │   invoke      │  │   │
+│  │                          │  (per session)   │   └───────────────┘  │   │
+│  │                          │  • history[40]   │                      │   │
+│  │                          │  • system prompt │                      │   │
+│  │                          └───────┬──────────┘                      │   │
+│  │                                  │                                  │   │
+│  │           ┌──────────────────────┴─────────────────────┐           │   │
+│  │           ▼                                            ▼           │   │
+│  │  ┌─────────────────────────┐            ┌──────────────────────┐   │   │
+│  │  │  LLM Backend            │            │  Tool Dispatcher     │   │   │
+│  │  │                         │  tool call │                      │   │   │
+│  │  │  ┌─────────────────┐   │◄──────────►│  ┌────────────────┐  │   │   │
+│  │  │  │ LlamaCppClient  │   │  result    │  │ Market Data    │  │   │   │
+│  │  │  │ (GGUF in-proc)  │   │            │  │ get_stock_data │  │   │   │
+│  │  │  │ Qwen2.5-7B      │   │            │  │ get_crypto     │  │   │   │
+│  │  │  │ ~4.7 GB RAM     │   │            │  │ get_technical  │  │   │   │
+│  │  │  └─────────────────┘   │            │  │ get_options    │  │   │   │
+│  │  │  ┌─────────────────┐   │            │  │ search_ticker  │  │   │   │
+│  │  │  │ Transformers    │   │            │  └────────────────┘  │   │   │
+│  │  │  │ (HuggingFace)   │   │            │  ┌────────────────┐  │   │   │
+│  │  │  │ GPU preferred   │   │            │  │ News & Sentiment│  │   │   │
+│  │  │  └─────────────────┘   │            │  │ search_news    │  │   │   │
+│  │  │                         │            │  │ earnings_cal.  │  │   │   │
+│  │  │  Tool-use loop (ReAct): │            │  │ stored_news    │  │   │   │
+│  │  │  while finish_reason    │            │  │ latest_news    │  │   │   │
+│  │  │  == "tool_calls":       │            │  └────────────────┘  │   │   │
+│  │  │    dispatch → feed back │            │  ┌────────────────┐  │   │   │
+│  │  └─────────────────────────┘            │  │ Portfolio      │  │   │   │
+│  │                                         │  │ get_portfolio  │  │   │   │
+│  └─────────────────────────────────────────┤  │ get_account    │  │   │   │
+│                                            │  │ get_trades     │  │   │   │
+│  ┌─────────────────────────────────────┐   │  └────────────────┘  │   │   │
+│  │  APScheduler  (in-process)          │   │  ┌────────────────┐  │   │   │
+│  │                                     │   │  │ Trade Execution│  │   │   │
+│  │  every 5 min  → market snapshot     │   │  │ execute_trade  │  │   │   │
+│  │  every 30 min → news ingestion      │   │  │ cancel_order   │  │   │   │
+│  │  Mon-Fri 9-5  → autonomous scan     │   │  └────────────────┘  │   │   │
+│  │  Sunday 18:00 → weekly PDF report   │   │  ┌────────────────┐  │   │   │
+│  │  Saturday 9am → newsletter email    │   │  │ Analysis       │  │   │   │
+│  └─────────────────────────────────────┘   │  │ run_simulation │  │   │   │
+│                                            │  │ gen_report     │  │   │   │
+│  ┌────────────────┐  ┌────────────────┐    │  │ set_mode       │  │   │   │
+│  │  PostgreSQL    │  │  Redis         │    │  └────────────────┘  │   │   │
+│  │  chat history  │  │  cache         │    └──────────────────────┘   │   │
+│  │  trades        │  │                │                               │   │
+│  │  reports       │  │                │                               │   │
+│  └────────────────┘  └────────────────┘                               │   │
+│                                                                         │   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │   │
+│  │  Pi-hole  (Docker container, port 53 / 8080)                    │   │   │
+│  │  Network-wide DNS ad blocking for all LAN devices               │   │   │
+│  └─────────────────────────────────────────────────────────────────┘   │   │
+│                                                                         │   │
+└─────────────────────────────────────────────────────────────────────────────┘
+              │ outbound only (no inbound ports except 51820)
+              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  EXTERNAL DATA SOURCES  (read-only, no auth data sent)                      │
+│                                                                             │
+│  Yahoo Finance (yfinance)    NewsAPI / Guardian API    RSS feeds            │
+│  Alpaca Markets API          Coinbase Advanced API     Binance API          │
+│  Interactive Brokers TWS     IMAP (newsletter emails)                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Request flow — user sends a chat message
+
+```
+User types message
+       │
+       ▼
+  WebSocket /ws/chat/{session_id}
+       │
+       ▼
+  Orchestrator.chat()
+  • appends user message to history
+  • passes history + system prompt to LLM
+       │
+       ▼
+  LLM Backend  ←─── system prompt + conversation history + 18 tool schemas
+  (ReAct loop)
+       │
+       ├─ finish_reason == "tool_calls" ──► Tool Dispatcher ──► broker / yfinance / news
+       │       ▲                                                        │
+       │       └────────────── tool result fed back ───────────────────┘
+       │
+       └─ finish_reason == "stop" ──► text streamed token-by-token to browser
+                                   ──► persisted to PostgreSQL
+```
+
+### Scheduled jobs
+
+```
+APScheduler (runs inside FastAPI process)
+│
+├── every 5 min     → get_market_overview() + top news   → _latest_snapshot cache
+├── every 30 min    → RSS / NewsAPI ingestion             → PostgreSQL news store
+├── Mon–Fri 9–5 EST → autonomous scan (auto mode only)   → may execute trades
+├── Sunday 18:00    → weekly report (LLM + tools + PDF)  → PostgreSQL + /app/reports
+└── Saturday 09:00  → IMAP email reader (newsletters)    → PostgreSQL news store
 ```
 
 ---
