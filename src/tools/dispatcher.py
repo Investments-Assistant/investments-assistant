@@ -5,8 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import json
 
+from sqlalchemy import select
+
 from src.agent.utils.logger import get_logger
 from src.config import settings
+from src.db.database import async_session
+from src.db.models import DailyPnL, SimulationResult, Trade
 from src.tools.brokers import (
     alpaca as alpaca_tool,
     binance as binance_tool,
@@ -90,11 +94,6 @@ async def _dispatch(name: str, inp: dict) -> object:
 async def _is_daily_halted() -> bool:
     """Return True if auto-trading has been halted for today."""
     try:
-        from sqlalchemy import select
-
-        from src.db.database import async_session
-        from src.db.models import DailyPnL
-
         today = datetime.now(UTC).strftime("%Y-%m-%d")
         async with async_session() as session:
             result = await session.execute(select(DailyPnL).where(DailyPnL.date == today))
@@ -109,11 +108,6 @@ async def _is_daily_halted() -> bool:
 async def _check_and_enforce_daily_limit(realized_delta_usd: float) -> None:
     """Update today's realized P&L and set halt flag if limit is breached."""
     try:
-        from sqlalchemy import select
-
-        from src.db.database import async_session
-        from src.db.models import DailyPnL
-
         today = datetime.now(UTC).strftime("%Y-%m-%d")
         async with async_session() as session:
             result = await session.execute(select(DailyPnL).where(DailyPnL.date == today))
@@ -195,9 +189,6 @@ async def _execute_trade(inp: dict) -> dict:
 
     # Persist trade to DB
     try:
-        from src.db.database import async_session
-        from src.db.models import Trade
-
         async with async_session() as session:
             trade = Trade(
                 broker=broker,
@@ -238,9 +229,6 @@ async def _confirm_trade(inp: dict) -> dict:
     result["reason"] = reason
 
     try:
-        from src.db.database import async_session
-        from src.db.models import Trade
-
         async with async_session() as session:
             trade = Trade(
                 broker=broker,
@@ -328,9 +316,6 @@ async def _run_simulation_and_persist(inp: dict) -> dict:
         return result
 
     try:
-        from src.db.database import async_session
-        from src.db.models import SimulationResult
-
         async with async_session() as session:
             sim = SimulationResult(
                 name=result["name"],

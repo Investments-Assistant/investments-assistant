@@ -9,9 +9,12 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
 
 from src.agent.utils.logger import get_logger
 from src.config import settings
+from src.db.database import async_session
+from src.db.models import Report, Trade
 from src.scheduler.jobs import get_latest_snapshot
 
 logger = get_logger(__name__)
@@ -119,11 +122,6 @@ async def market_snapshot() -> dict:
 async def list_reports() -> list[dict]:
     """List all generated reports."""
     try:
-        from sqlalchemy import select
-
-        from src.db.database import async_session
-        from src.db.models import Report
-
         async with async_session() as session:
             result = await session.execute(
                 select(Report).order_by(Report.created_at.desc()).limit(20)
@@ -155,11 +153,6 @@ async def list_reports() -> list[dict]:
 async def download_report_pdf(report_id: str) -> FileResponse:
     """Download a report as PDF."""
     try:
-        from sqlalchemy import select
-
-        from src.db.database import async_session
-        from src.db.models import Report
-
         async with async_session() as session:
             result = await session.execute(select(Report).where(Report.id == report_id))
             report = result.scalar_one_or_none()
@@ -186,11 +179,6 @@ async def download_report_pdf(report_id: str) -> FileResponse:
 async def list_trades(limit: int = 50) -> list[dict]:
     """List recent trades recorded in the database."""
     try:
-        from sqlalchemy import select
-
-        from src.db.database import async_session
-        from src.db.models import Trade
-
         async with async_session() as session:
             result = await session.execute(
                 select(Trade).order_by(Trade.created_at.desc()).limit(limit)
