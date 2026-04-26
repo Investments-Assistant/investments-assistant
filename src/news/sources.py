@@ -213,12 +213,12 @@ def fetch_rss(max_per_feed: int = 20) -> list[dict[str, Any]]:
         try:
             feed = feedparser.parse(url)
             for entry in feed.entries[:max_per_feed]:
-                link = entry.get("link", "")
+                link = getattr(entry, "link", "") or ""
                 if not link:
                     continue
-                title = entry.get("title", "")
-                summary = entry.get("summary", "")
-                published = entry.get("published", "")
+                title = getattr(entry, "title", "") or ""
+                summary = getattr(entry, "summary", "") or ""
+                published = getattr(entry, "published", "") or ""
                 articles.append(_article(title, summary, source, link, published))
         except Exception as exc:
             logger.debug("RSS %s failed: %s", source, exc)
