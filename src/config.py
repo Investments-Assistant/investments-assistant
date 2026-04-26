@@ -73,6 +73,10 @@ class Settings(BaseSettings):
     # --- shared ---------------------------------------------------------------
     agent_max_tokens: int = 2048
     agent_temperature: float = 0.1
+    # With llm_context_size=4096, system prompt (~400 tok) + response (2048 tok)
+    # leaves ~1648 tokens for history — roughly 10 messages at ~150 tok each.
+    # Set higher when using a larger context window or the Claude API.
+    agent_max_context_messages: int = 15
 
     # ── Trading ────────────────────────────────────────────────────────────────
     trading_mode: Literal["recommend", "auto"] = "recommend"

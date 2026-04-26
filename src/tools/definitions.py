@@ -298,6 +298,55 @@ TOOL_DEFINITIONS = [
             "required": ["broker", "order_id"],
         },
     },
+    {
+        "name": "confirm_trade",
+        "description": (
+            "Execute a trade that was previously recommended and is pending user confirmation. "
+            "Call this ONLY after the user explicitly says to confirm or proceed with the trade. "
+            "Pass the trade_details object exactly as returned in the pending_confirmation \
+                response."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "broker": {
+                    "type": "string",
+                    "enum": ["alpaca", "ibkr", "coinbase", "binance"],
+                    "description": "Which broker to route the order through",
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": "Ticker or trading pair, e.g. 'AAPL', 'BTC-USD'",
+                },
+                "side": {
+                    "type": "string",
+                    "enum": ["buy", "sell"],
+                },
+                "quantity": {
+                    "type": "number",
+                    "description": "Number of shares / coins",
+                },
+                "order_type": {
+                    "type": "string",
+                    "enum": ["market", "limit", "stop_limit"],
+                    "default": "market",
+                },
+                "limit_price": {
+                    "type": "number",
+                    "description": "Limit price (required for limit / stop_limit orders)",
+                },
+                "stop_price": {
+                    "type": "number",
+                    "description": "Stop trigger price (required for stop_limit orders)",
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "The original reasoning for this trade",
+                },
+            },
+            "required": ["broker", "symbol", "side", "quantity"],
+        },
+    },
     # ── Simulation ─────────────────────────────────────────────────────────────
     {
         "name": "run_simulation",

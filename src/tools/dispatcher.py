@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 import json
 
 from src.agent.utils.logger import get_logger
@@ -55,7 +56,6 @@ _SYNC_DISPATCH: dict[str, object] = {
     "get_trade_history": lambda inp: get_trade_history(
         broker=inp["broker"], days=inp.get("days", 30)
     ),
-    "run_simulation": lambda inp: run_simulation(**inp),
     "set_trading_mode": lambda inp: _set_trading_mode(inp["mode"]),
 }
 
@@ -63,6 +63,8 @@ _SYNC_DISPATCH: dict[str, object] = {
 _ASYNC_DISPATCH: dict[str, object] = {
     "search_stored_news": lambda inp: search_stored_news(**inp),
     "get_latest_news": lambda inp: get_latest_news(limit=inp.get("limit", 20)),
+    # run_simulation is CPU-bound but needs async DB persistence afterward
+    "run_simulation": lambda inp: _run_simulation_and_persist(inp),
 }
 
 
@@ -73,11 +75,69 @@ async def _dispatch(name: str, inp: dict) -> object:
         return await _ASYNC_DISPATCH[name](inp)  # type: ignore[operator]
     if name == "execute_trade":
         return await _execute_trade(inp)
+    if name == "confirm_trade":
+        return await _confirm_trade(inp)
     if name == "cancel_order":
         return _cancel_order(inp)
     if name == "generate_report":
         return await _generate_report(inp)
     return {"error": f"Unknown tool: {name}"}
+
+
+# ── Daily loss-limit helpers ─────────────────────────────────────────────────
+
+
+async def _is_daily_halted() -> bool:
+    """Return True if auto-trading has been halted for today."""
+    try:
+        from sqlalchemy import select
+
+        from src.db.database import async_session
+        from src.db.models import DailyPnL
+
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        async with async_session() as session:
+            result = await session.execute(select(DailyPnL).where(DailyPnL.date == today))
+            record = result.scalar_one_or_none()
+            return bool(record and record.auto_trading_halted)
+    except Exception as exc:
+        # Fail open: don't block trading on a DB read error
+        logger.warning("Failed to check daily halt flag: %s", exc)
+        return False
+
+
+async def _check_and_enforce_daily_limit(realized_delta_usd: float) -> None:
+    """Update today's realized P&L and set halt flag if limit is breached."""
+    try:
+        from sqlalchemy import select
+
+        from src.db.database import async_session
+        from src.db.models import DailyPnL
+
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        async with async_session() as session:
+            result = await session.execute(select(DailyPnL).where(DailyPnL.date == today))
+            record = result.scalar_one_or_none()
+            if record is None:
+                record = DailyPnL(date=today, realized_usd=0.0)
+                session.add(record)
+
+            record.realized_usd = (record.realized_usd or 0.0) + realized_delta_usd
+
+            if record.realized_usd < -abs(settings.auto_daily_loss_limit_usd):
+                record.auto_trading_halted = True
+                logger.warning(
+                    "Daily loss limit breached (%.2f USD). Auto-trading halted for %s.",
+                    record.realized_usd,
+                    today,
+                )
+
+            await session.commit()
+    except Exception as exc:
+        logger.warning("Failed to update daily P&L: %s", exc)
+
+
+# ── Trade execution ──────────────────────────────────────────────────────────
 
 
 async def _execute_trade(inp: dict) -> dict:
@@ -89,17 +149,6 @@ async def _execute_trade(inp: dict) -> dict:
     limit_price = inp.get("limit_price")
     stop_price = inp.get("stop_price")
     reason = inp.get("reason", "")
-
-    # Safety check for auto mode
-    if settings.trading_mode == "auto":
-        if (
-            settings.auto_allowed_symbols_set
-            and symbol.upper() not in settings.auto_allowed_symbols_set
-        ):
-            return {
-                "blocked": True,
-                "reason": f"{symbol} is not in the auto-trading allowed symbols list.",
-            }
 
     if settings.trading_mode == "recommend":
         return {
@@ -118,14 +167,33 @@ async def _execute_trade(inp: dict) -> dict:
                 "order_type": order_type,
                 "limit_price": limit_price,
                 "stop_price": stop_price,
+                "reason": reason,
             },
         }
 
-    # AUTO mode — execute immediately
+    # AUTO mode — check safety guards before executing
+    if (
+        settings.auto_allowed_symbols_set
+        and symbol.upper() not in settings.auto_allowed_symbols_set
+    ):
+        return {
+            "blocked": True,
+            "reason": f"{symbol} is not in the auto-trading allowed symbols list.",
+        }
+
+    if await _is_daily_halted():
+        return {
+            "blocked": True,
+            "reason": (
+                f"Auto-trading is halted for today: daily loss limit of "
+                f"{settings.auto_daily_loss_limit_usd} USD has been reached."
+            ),
+        }
+
     result = _route_order(broker, symbol, side, quantity, order_type, limit_price, stop_price)
     result["reason"] = reason
 
-    # Persist to DB (fire-and-forget; import inline to avoid circular)
+    # Persist trade to DB
     try:
         from src.db.database import async_session
         from src.db.models import Trade
@@ -147,6 +215,49 @@ async def _execute_trade(inp: dict) -> dict:
             await session.commit()
     except Exception as exc:
         logger.warning("Failed to persist trade to DB: %s", exc)
+
+    # Negative delta for sells (potential loss), zero for buys (cost, not yet realised)
+    if side == "sell" and limit_price:
+        await _check_and_enforce_daily_limit(-(quantity * limit_price))
+
+    return result
+
+
+async def _confirm_trade(inp: dict) -> dict:
+    """Execute a user-confirmed recommendation. Bypasses recommend-mode guard."""
+    broker = inp["broker"]
+    symbol = inp["symbol"]
+    side = inp["side"]
+    quantity = float(inp["quantity"])
+    order_type = inp.get("order_type", "market")
+    limit_price = inp.get("limit_price")
+    stop_price = inp.get("stop_price")
+    reason = inp.get("reason", "User confirmed recommendation")
+
+    result = _route_order(broker, symbol, side, quantity, order_type, limit_price, stop_price)
+    result["reason"] = reason
+
+    try:
+        from src.db.database import async_session
+        from src.db.models import Trade
+
+        async with async_session() as session:
+            trade = Trade(
+                broker=broker,
+                symbol=symbol,
+                side=side,
+                quantity=quantity,
+                price=limit_price,
+                order_type=order_type,
+                status=result.get("status", "submitted"),
+                broker_order_id=result.get("order_id"),
+                mode="manual",
+                reason=reason,
+            )
+            session.add(trade)
+            await session.commit()
+    except Exception as exc:
+        logger.warning("Failed to persist confirmed trade to DB: %s", exc)
 
     return result
 
@@ -190,7 +301,6 @@ def _cancel_order(inp: dict) -> dict:
 def _set_trading_mode(mode: str) -> dict:
     if mode not in ("recommend", "auto"):
         return {"error": "mode must be 'recommend' or 'auto'"}
-    # Mutate the settings singleton for the running process
     settings.trading_mode = mode  # type: ignore[misc]
     return {
         "success": True,
@@ -206,3 +316,40 @@ async def _generate_report(inp: dict) -> dict:
         period_start=inp["period_start"],
         period_end=inp.get("period_end"),
     )
+
+
+# ── Simulation with DB persistence ──────────────────────────────────────────
+
+
+async def _run_simulation_and_persist(inp: dict) -> dict:
+    """Run a backtest simulation and persist the result to the DB."""
+    result = run_simulation(**inp)
+    if "error" in result:
+        return result
+
+    try:
+        from src.db.database import async_session
+        from src.db.models import SimulationResult
+
+        async with async_session() as session:
+            sim = SimulationResult(
+                name=result["name"],
+                strategy=result["strategy"],
+                initial_capital=result["initial_capital"],
+                final_value=result["final_value"],
+                total_return_pct=result.get("total_return_pct", 0.0),
+                sharpe_ratio=result.get("sharpe_ratio"),
+                max_drawdown_pct=result.get("max_drawdown_pct"),
+                trades_count=result["trades_count"],
+                period_start=result["period_start"],
+                period_end=result["period_end"],
+                equity_curve=result["equity_curve"],
+            )
+            session.add(sim)
+            await session.commit()
+            result["simulation_id"] = sim.id
+            logger.info("Simulation '%s' persisted (id=%s)", sim.name, sim.id)
+    except Exception as exc:
+        logger.warning("Failed to persist simulation result: %s", exc)
+
+    return result

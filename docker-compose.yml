@@ -42,6 +42,9 @@ services:
 
   # ── Investment Assistant App ───────────────────────────────────────────────
   app:
+    # CI pushes to GHCR; on the Pi run `docker compose pull && docker compose up -d`
+    # to deploy. For local development run `docker compose up --build` to build locally.
+    image: ghcr.io/investments-assistant/investments-assistant:latest
     build:
       context: .
       dockerfile: Dockerfile

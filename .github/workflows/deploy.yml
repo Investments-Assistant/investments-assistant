@@ -1,0 +1,83 @@
+name: Deploy to Pi
+
+# Runs automatically after a successful build-and-push on main, or manually.
+#
+# Prerequisites — one-time setup on the Pi:
+#
+#   # 1. Register a self-hosted runner (do this once)
+#   mkdir -p ~/actions-runner && cd ~/actions-runner
+#   curl -o runner.tar.gz -L https://github.com/actions/runner/releases/latest/download/actions-runner-linux-arm64-*.tar.gz
+#   tar xzf runner.tar.gz
+#   ./config.sh --url https://github.com/Investments-Assistant/investments-assistant \
+#               --token <REGISTRATION_TOKEN> \
+#               --labels pi5 --name pi5-runner
+#   sudo ./svc.sh install && sudo ./svc.sh start
+#
+#   # 2. Log the runner user into GHCR so it can pull images
+#   echo $CR_PAT | docker login ghcr.io -u <github-username> --password-stdin
+#
+# The runner labels used below are: self-hosted, linux, arm64, pi5
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Image"]
+    types: [completed]
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (default: latest)"
+        required: false
+        default: "latest"
+
+jobs:
+  deploy:
+    name: Deploy to Raspberry Pi 5
+    runs-on: [self-hosted, linux, arm64, pi5]
+    # Skip if triggered by workflow_run and that run failed
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Pull latest image from GHCR
+        run: |
+          TAG="${{ inputs.image_tag || 'latest' }}"
+          docker pull ghcr.io/investments-assistant/investments-assistant:${TAG}
+
+      - name: Restart app service with new image
+        # --force-recreate ensures the container is replaced even if the config hasn't changed.
+        # --no-deps leaves postgres/redis/nginx/pihole untouched.
+        run: |
+          docker compose up -d --force-recreate --no-deps app
+
+      - name: Wait for app to report healthy
+        run: |
+          echo "Waiting for app container to become healthy..."
+          for i in $(seq 1 30); do
+            STATUS=$(docker compose ps --format json app | python3 -c "import sys,json; print(json.load(sys.stdin).get('Health',''))" 2>/dev/null || echo "")
+            if [ "$STATUS" = "healthy" ]; then
+              echo "App is healthy."
+              break
+            fi
+            echo "  attempt $i/30 — status: ${STATUS:-starting}"
+            sleep 2
+          done
+
+      - name: Smoke test
+        # Hits the health endpoint directly on the internal Docker network port.
+        # Fails the deploy if the app doesn't respond within 10 seconds.
+        run: |
+          curl --fail --max-time 10 --retry 3 --retry-delay 2 \
+            http://localhost:8000/api/health | python3 -m json.tool
+
+      - name: Print deployed image digest
+        run: docker inspect --format='{{index .RepoDigests 0}}' \
+          ghcr.io/investments-assistant/investments-assistant:${{ inputs.image_tag || 'latest' }}

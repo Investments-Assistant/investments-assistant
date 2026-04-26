@@ -91,11 +91,36 @@ async def _autonomous_scan() -> None:
             "signals on major stocks and crypto. If you identify a compelling trade opportunity "
             "with a strong risk/reward profile, execute it. Document your full reasoning."
         )
+        text_parts: list[str] = []
         async for event in session.chat(prompt):
             if event["type"] == "text_delta":
-                pass  # logged internally
+                text_parts.append(event["text"])
+
+        summary = "".join(text_parts)
+        if summary:
+            await _persist_analysis(summary, prompt)
     except Exception as exc:
         logger.error("Autonomous scan failed: %s", exc)
+
+
+async def _persist_analysis(summary: str, prompt: str) -> None:
+    """Save the autonomous scan result as an Analysis record."""
+    try:
+        from src.db.database import async_session
+        from src.db.models import Analysis
+
+        async with async_session() as session:
+            analysis = Analysis(
+                trigger="scheduled",
+                symbols=[],
+                summary=summary,
+                raw_data={"prompt": prompt},
+            )
+            session.add(analysis)
+            await session.commit()
+        logger.info("Autonomous scan analysis persisted")
+    except Exception as exc:
+        logger.warning("Failed to persist autonomous scan analysis: %s", exc)
 
 
 def setup_scheduler() -> None:

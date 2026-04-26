@@ -16,9 +16,6 @@ from src.config import settings
 
 logger = get_logger(__name__)
 
-# Maximum messages to keep in context (older messages are trimmed)
-MAX_CONTEXT_MESSAGES = 40
-
 
 class InvestmentsAssistantOrchestrator:
     """Stateful orchestrator for one chat session."""
@@ -36,8 +33,8 @@ class InvestmentsAssistantOrchestrator:
         )
 
     def _trimmed_history(self) -> list[dict]:
-        """Keep the last MAX_CONTEXT_MESSAGES to stay within context limits."""
-        return self.history[-MAX_CONTEXT_MESSAGES:]
+        """Keep the last settings.agent_max_context_messages to stay within context limits."""
+        return self.history[-settings.agent_max_context_messages :]
 
     async def chat(
         self,
@@ -108,7 +105,7 @@ class InvestmentsAssistantOrchestrator:
                     select(ChatMessage)
                     .where(ChatMessage.session_id == self.session_id)
                     .order_by(ChatMessage.created_at)
-                    .limit(MAX_CONTEXT_MESSAGES)
+                    .limit(settings.agent_max_context_messages)
                 )
                 messages = result.scalars().all()
                 self.history = [
